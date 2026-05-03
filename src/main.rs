@@ -1,8 +1,9 @@
-use sss::{parse_dimacs_file, sat::is_sat, structures::FormulaTranslator};
+use sss::{parse_dimacs_file, parser::FormulaTranslator, sat::is_sat};
 use std::path::Path;
 use std::process::ExitCode;
 use tracing::{debug, error, Level};
 
+// More of the front end
 const STR_ERROR: &str = "ERR";
 const STR_SAT: &str = "SAT";
 const STR_UNSAT: &str = "UNSAT";
