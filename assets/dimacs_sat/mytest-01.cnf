@@ -1,0 +1,5 @@
+c example of a sat formula 
+p cnf 3 3 
+1 2 0
+-1 2 0
+-2 3 0 

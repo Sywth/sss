@@ -1,0 +1,46 @@
+use sss::{parse_dimacs_file, sat::is_sat, structures::FormulaTranslator};
+use std::path::Path;
+use std::process::ExitCode;
+use tracing::{debug, error, Level};
+
+const STR_ERROR: &str = "ERR";
+const STR_SAT: &str = "SAT";
+const STR_UNSAT: &str = "UNSAT";
+
+fn main() -> ExitCode {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .with_ansi(true)
+        .init();
+
+    let mut args = std::env::args();
+    let this_script = args.next().unwrap_or_else(|| "main".into());
+    let dimacs_path = match args.next() {
+        Some(p) => p,
+        None => {
+            eprintln!("Usage: {this_script} <dimacs_file>");
+            println!("{}", STR_ERROR);
+            return ExitCode::from(1);
+        }
+    };
+
+    let fp_dimacs = Path::new(&dimacs_path);
+
+    let formula: FormulaTranslator<i32, u32> = match parse_dimacs_file(fp_dimacs) {
+        Ok(f) => f,
+        Err(e) => {
+            error!(path = ?fp_dimacs, error = ?e,);
+            println!("{}", STR_ERROR);
+            return ExitCode::from(1);
+        }
+    };
+
+    debug!("parsed formula as {:#?}", formula);
+    let result = match is_sat(formula.cnf) {
+        true => STR_SAT,
+        false => STR_UNSAT,
+    };
+    println!("result = {}", result);
+
+    ExitCode::from(0)
+}
