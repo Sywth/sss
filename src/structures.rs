@@ -33,14 +33,14 @@ impl<T: SwUint> FormulaConjunctive<T> {
     pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = (T, bool)>>(
         clause_iterator: I,
     ) -> Self {
-        Self {
-            clauses: clause_iterator
-                .into_iter()
-                .map(|clause| {
-                    let (atoms, truthiness): (Vec<T>, Vec<bool>) = clause.into_iter().unzip();
-                    ClauseDisjunctive::new(atoms, truthiness)
-                })
-                .collect(),
-        }
+        let clauses = clause_iterator
+            .into_iter()
+            .map(|clause| {
+                let (atoms, truthiness): (Vec<T>, Vec<bool>) = clause.into_iter().unzip();
+                ClauseDisjunctive::new(atoms, truthiness)
+            })
+            .collect();
+
+        Self { clauses }
     }
 }

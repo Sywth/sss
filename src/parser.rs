@@ -1,8 +1,9 @@
-use std::fs::File;
 use std::io::BufRead;
 use std::path::Path;
+use std::{collections::hash_map, fs::File};
 use tracing::{debug, error};
 
+use crate::{structures::SwUint, FormulaConjunctive};
 use num_traits::{PrimInt, Signed, ToPrimitive};
 use std::{
     collections::HashMap,
@@ -10,9 +11,6 @@ use std::{
     hash::Hash,
     str::FromStr,
 };
-use tracing::field::debug;
-
-use crate::{structures::SwUint, FormulaConjunctive};
 
 // Pure front end here. Only goal is get data into shape for backend. Performance cost is not
 // important here
@@ -31,14 +29,44 @@ impl<K: SwInt, V: SwUint> FormulaTranslator<K, V> {
     /// Given some 2D iterator e.g. [[526,334], [-334,3,74]]  we should be able
     /// spit back a normalized formula like so
     /// [[1,2], [-2, 3, 4]], {526: 1, 334: 2, 3: 3, 74: 4}
-    pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = K>>(_clause_iterator: I) -> Self {
-        debug("TODO Implement this man");
+    pub fn new<I: IntoIterator<Item = J> + Clone, J: IntoIterator<Item = K>>(
+        clause_iterator: I,
+    ) -> Self {
+        let mut dimacs_id_to_sw_id: HashMap<K, V> = HashMap::new();
+        let mut curr_sw_id = V::one();
 
+        for disjunction in clause_iterator.clone().into_iter() {
+            for k_litearl in disjunction.into_iter() {
+                let k_atom = k_litearl.abs();
+
+                if let hash_map::Entry::Vacant(e) = dimacs_id_to_sw_id.entry(k_atom) {
+                    e.insert(curr_sw_id);
+                    curr_sw_id = curr_sw_id.add(V::one());
+                }
+            }
+        }
+
+        let mut clauses: Vec<Vec<(V, bool)>> = Vec::new();
+        for disjunction in clause_iterator.into_iter() {
+            let mut litearls: Vec<(V, bool)> = Vec::new();
+            for k_litearl in disjunction.into_iter() {
+                let k_atom = k_litearl.abs();
+                let v_atom = *dimacs_id_to_sw_id.get(&k_atom).expect("bad logic");
+
+                let polarity: bool = match k_litearl.signum().to_i8().unwrap() {
+                    1 => true,
+                    -1 => false,
+                    _ => panic!("malformed formula, found literal with value 0"),
+                };
+                litearls.push((v_atom, polarity));
+            }
+            clauses.push(litearls);
+        }
+
+        let cnf = FormulaConjunctive::new(clauses);
         Self {
-            dimacs_id_to_sw_id: HashMap::new(),
-            cnf: FormulaConjunctive {
-                clauses: Vec::new(),
-            },
+            dimacs_id_to_sw_id,
+            cnf,
         }
     }
 }
@@ -73,16 +101,17 @@ pub fn parse_dimacs_file<T: SwInt, P: AsRef<Path>>(
 
         for token in it {
             match token.parse::<T>() {
-                Ok(value) => {
-                    debug!("parsed {} as an integer", value);
-                    if value != T::zero() {
-                        disjunction_stack.push(value);
-                        continue;
-                    }
-
+                // value is int+
+                Ok(value) if value != T::zero() => {
+                    disjunction_stack.push(value);
+                }
+                // value == 0
+                Ok(_) => {
+                    // OPTIMIZATION: You can replace this with a mem take?
                     conjunctions.push(disjunction_stack.clone());
                     disjunction_stack.clear();
                 }
+                // value cannot be parsed
                 Err(_) => {
                     error!(token = token, "failed to parse token");
                 }
