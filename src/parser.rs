@@ -3,7 +3,7 @@ use std::path::Path;
 use std::{collections::hash_map, fs::File};
 use tracing::{debug, error};
 
-use crate::{structures::SwUint, FormulaConjunctive};
+use crate::{structures::FormulaConjunctiveBasic, structures::SwUint};
 use num_traits::{PrimInt, Signed, ToPrimitive};
 use std::{
     collections::HashMap,
@@ -20,7 +20,7 @@ impl<T> SwInt for T where T: PrimInt + Signed + Hash + FromStr + Display + Debug
 #[derive(Debug)]
 pub struct FormulaTranslator<K: SwInt, V: SwUint> {
     pub dimacs_id_to_sw_id: HashMap<K, V>,
-    pub cnf: FormulaConjunctive<V>,
+    pub cnf: FormulaConjunctiveBasic<V>,
 }
 
 /// K is the front end id type (e.g. i32)
@@ -63,7 +63,7 @@ impl<K: SwInt, V: SwUint> FormulaTranslator<K, V> {
             clauses.push(litearls);
         }
 
-        let cnf = FormulaConjunctive::new(clauses);
+        let cnf = FormulaConjunctiveBasic::new(clauses);
         Self {
             dimacs_id_to_sw_id,
             cnf,

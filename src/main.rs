@@ -1,4 +1,4 @@
-use sss::{parse_dimacs_file, parser::FormulaTranslator, sat::is_sat};
+use sss::{parse_dimacs_file, FormulaTranslator, SatFormula};
 use std::path::Path;
 use std::process::ExitCode;
 use tracing::{debug, error, Level};
@@ -37,7 +37,7 @@ fn main() -> ExitCode {
     };
 
     debug!("parsed formula as {:#?}", formula);
-    let result = match is_sat(formula.cnf) {
+    let result = match formula.is_sat() {
         true => STR_SAT,
         false => STR_UNSAT,
     };

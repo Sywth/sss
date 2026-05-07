@@ -10,14 +10,14 @@ pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Display + Debug + ToPrim
 impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Display + Debug + ToPrimitive {}
 
 #[derive(Debug)]
-pub struct ClauseDisjunctive<T: SwUint> {
+pub struct ClauseDisjunctiveBasic<T: SwUint> {
     // Raw propositional atoms
     pub atoms: Vec<T>,
     // Truth value required by the atom for for this clause to be satisfied
     pub truthiness: Vec<bool>,
 }
 
-impl<T: SwUint> ClauseDisjunctive<T> {
+impl<T: SwUint> ClauseDisjunctiveBasic<T> {
     pub fn new(atoms: Vec<T>, truthiness: Vec<bool>) -> Self {
         debug_assert_eq!(atoms.len(), truthiness.len());
         Self { atoms, truthiness }
@@ -25,11 +25,11 @@ impl<T: SwUint> ClauseDisjunctive<T> {
 }
 
 #[derive(Debug)]
-pub struct FormulaConjunctive<T: SwUint> {
-    pub clauses: Vec<ClauseDisjunctive<T>>,
+pub struct FormulaConjunctiveBasic<T: SwUint> {
+    pub clauses: Vec<ClauseDisjunctiveBasic<T>>,
 }
 
-impl<T: SwUint> FormulaConjunctive<T> {
+impl<T: SwUint> FormulaConjunctiveBasic<T> {
     pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = (T, bool)>>(
         clause_iterator: I,
     ) -> Self {
@@ -37,7 +37,7 @@ impl<T: SwUint> FormulaConjunctive<T> {
             .into_iter()
             .map(|clause| {
                 let (atoms, truthiness): (Vec<T>, Vec<bool>) = clause.into_iter().unzip();
-                ClauseDisjunctive::new(atoms, truthiness)
+                ClauseDisjunctiveBasic::new(atoms, truthiness)
             })
             .collect();
 
