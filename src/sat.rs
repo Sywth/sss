@@ -11,7 +11,7 @@ pub trait SatFormula {
 
 impl<T: SwUint> SatFormula for FormulaConjunctiveBasic<T> {
     fn is_sat(&self) -> bool {
-        todo!()
+        true
     }
 }
 

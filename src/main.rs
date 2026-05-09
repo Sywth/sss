@@ -1,7 +1,7 @@
-use sss::{parse_dimacs_file, FormulaTranslator, SatFormula};
+use sss::{FormulaTranslator, SatFormula, parse_dimacs_file};
 use std::path::Path;
 use std::process::ExitCode;
-use tracing::{debug, error, Level};
+use tracing::{Level, debug, error};
 
 // More of the front end
 const STR_ERROR: &str = "ERR";
@@ -10,7 +10,7 @@ const STR_UNSAT: &str = "UNSAT";
 
 fn main() -> ExitCode {
     tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
+        .with_max_level(Level::ERROR)
         .with_ansi(true)
         .init();
 
@@ -41,7 +41,7 @@ fn main() -> ExitCode {
         true => STR_SAT,
         false => STR_UNSAT,
     };
-    println!("result = {}", result);
+    println!("{}", result);
 
     ExitCode::from(0)
 }
