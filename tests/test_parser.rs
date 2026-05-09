@@ -27,10 +27,13 @@ fn parse_simple_dimacs() {
         Err(e) => panic!("failed to read dimacs file {:?}", e),
     };
 
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&1).unwrap();
+    let sw_2 = *formula.dimacs_id_to_sw_id.get(&2).unwrap();
+    let sw_3 = *formula.dimacs_id_to_sw_id.get(&3).unwrap();
     assert_eq!(formula.cnf.clauses.len(), 2);
-    assert_eq!(formula.cnf.clauses[0].atoms, vec![1, 2]);
+    assert_eq!(formula.cnf.clauses[0].atoms, vec![sw_1, sw_2]);
     assert_eq!(formula.cnf.clauses[0].truthiness, vec![true, false]);
-    assert_eq!(formula.cnf.clauses[1].atoms, vec![3]);
+    assert_eq!(formula.cnf.clauses[1].atoms, vec![sw_3]);
     assert_eq!(formula.cnf.clauses[1].truthiness, vec![true]);
 }
 
@@ -56,19 +59,21 @@ fn parse_complex_dimacs() {
         Err(e) => panic!("failed to read dimacs file {:?}", e),
     };
 
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&1).unwrap();
+    let sw_2 = *formula.dimacs_id_to_sw_id.get(&2).unwrap();
+    let sw_3 = *formula.dimacs_id_to_sw_id.get(&3).unwrap();
+    let sw_242 = *formula.dimacs_id_to_sw_id.get(&242).unwrap();
     assert_eq!(formula.cnf.clauses.len(), 6);
-    assert_eq!(formula.cnf.clauses[0].atoms, vec![1, 2, 1, 3]);
+    assert_eq!(formula.cnf.clauses[0].atoms, vec![sw_1, sw_2, sw_1, sw_3]);
     assert_eq!(
         formula.cnf.clauses[0].truthiness,
         vec![true, false, true, true]
     );
-    // TODO: figure out how to fix this as FormulaTranslator normalizes atom IDs
-    // e.g. 242 -> 4
-    assert_eq!(formula.cnf.clauses[1].atoms, vec![2, 242]);
+    assert_eq!(formula.cnf.clauses[1].atoms, vec![sw_2, sw_242]);
     assert_eq!(formula.cnf.clauses[1].truthiness, vec![true, false]);
     assert_eq!(formula.cnf.clauses[2].atoms, vec![]);
     assert_eq!(formula.cnf.clauses[3].atoms, vec![]);
-    assert_eq!(formula.cnf.clauses[4].atoms, vec![3]);
+    assert_eq!(formula.cnf.clauses[4].atoms, vec![sw_3]);
     assert_eq!(formula.cnf.clauses[4].truthiness, vec![true]);
     assert_eq!(formula.cnf.clauses[5].atoms, vec![]);
 }
@@ -94,7 +99,8 @@ fn singleton_formula_parses_correctly() {
         Ok(f) => f,
         Err(e) => panic!("failed to read dimacs file {:?}", e),
     };
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&1).unwrap();
     assert_eq!(formula.cnf.clauses.len(), 1);
-    assert_eq!(formula.cnf.clauses[0].atoms, vec![1]);
+    assert_eq!(formula.cnf.clauses[0].atoms, vec![sw_1]);
     assert_eq!(formula.cnf.clauses[0].truthiness, vec![true]);
 }
