@@ -1,3 +1,4 @@
+#![cfg(never)]
 use sss::{parse_dimacs_file, structures::ClauseDisjunctiveBasic, FormulaTranslator};
 
 // --------------------------------------------

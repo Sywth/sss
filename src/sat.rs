@@ -2,7 +2,7 @@ use rand::RngExt;
 
 use crate::{
     parser::SwInt,
-    structures::{FormulaConjunctiveBasic, SwUint},
+    structures::{ClauseDisjunctive, FormulaConjunctive, FormulaConjunctiveBasic, SwUint},
     FormulaTranslator,
 };
 
@@ -11,7 +11,13 @@ pub trait SatFormula {
 }
 
 pub struct Assignment {
-    pub gamma: Vec<Option<bool>>,
+    gamma: Vec<Option<bool>>,
+}
+
+pub fn get_atom_idx<T: SwUint>(atom: T) -> usize {
+    (T::sub(atom, T::one()))
+        .to_usize()
+        .expect("given atom could not be cast to usize, was it 0?")
 }
 
 impl Assignment {
@@ -20,14 +26,26 @@ impl Assignment {
             gamma: vec![None; size],
         }
     }
+
+    pub fn get<T: SwUint>(&self, atom: T) -> Option<&Option<bool>> {
+        let atom_idx = get_atom_idx(atom);
+        self.gamma.get(atom_idx)
+    }
+
+    fn insert<T: SwUint>(&mut self, atom: T, truthiness: Option<bool>) {
+        let atom_idx = get_atom_idx(atom);
+        self.gamma.insert(atom_idx, truthiness);
+    }
 }
 
 fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
     // note this is a weird way of doing [1..phi.max_atom()]
     let mut atoms: Vec<T> = Vec::new();
-    for clause in phi.clauses.iter() {
-        for atom in clause.atoms.iter() {
-            atoms.push(*atom);
+    for clause in phi.iter() {
+        for (atom, _) in clause.iter() {
+            if !atoms.contains(&atom) {
+                atoms.push(atom);
+            }
         }
     }
 
@@ -50,17 +68,14 @@ fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
 // OPTIMIZE: In future we might just want to return a reference the Assignment if there are
 // lots of atoms per formula
 fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut Assignment) -> bool {
-    for clause in phi.clauses.iter() {
+    for clause in phi.iter() {
         // if there is a literal in this clause that is
         // met in gamma skip as its satisfied
 
         let mut is_clause_met = false;
-        for (i, atom) in clause.atoms.iter().enumerate() {
-            let truthiness = *clause.truthiness.get(i).expect("bad logic");
-            let atom_idx = atom.to_usize().expect("bad logic, should cast to usize");
+        for (atom, truthiness) in clause.iter() {
             let curr_atom_assingment_opt = gamma
-                .gamma
-                .get(atom_idx)
+                .get(atom)
                 .expect("bad logic, this should already be fully initialized");
 
             // if current atom is not closed by gamma, skip
@@ -84,10 +99,8 @@ fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut Assignment) -> bo
         // build a set of atoms not closed by gamma for this clause
         let mut unassigned: Option<(T, bool)> = None;
         let mut is_unit_clause: bool = false;
-        for (i, atom) in clause.atoms.iter().enumerate() {
-            let atom_idx = atom.to_usize().expect("bad logic");
-            let atom_in_gamma = gamma.gamma.get(atom_idx);
-            let required_truthiness = *clause.truthiness.get(i).expect("bad logic");
+        for (atom, required_truthiness) in clause.iter() {
+            let atom_in_gamma = gamma.get(atom);
 
             if atom_in_gamma.is_none() {
                 // we have more than one unassigned literal in this clause
@@ -96,7 +109,7 @@ fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut Assignment) -> bo
                     break;
                 }
 
-                unassigned = Some((*atom, required_truthiness));
+                unassigned = Some((atom, required_truthiness));
                 is_unit_clause = true;
             }
         }
@@ -115,9 +128,7 @@ fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut Assignment) -> bo
 
         assert!(is_unit_clause && unassigned.is_some());
         let unassigned = unassigned.expect("bad logic");
-        let atom_idx = unassigned.0.to_usize().expect("bad logic");
-        let atom_truth = unassigned.1;
-        gamma.gamma.insert(atom_idx, Some(atom_truth));
+        gamma.insert(unassigned.0, Some(unassigned.1));
         // OPTIMIZE: Tail recursion with become keyword
         return up(phi, gamma);
     }
@@ -126,17 +137,15 @@ fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut Assignment) -> bo
 }
 
 fn is_valid<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &Assignment) -> bool {
-    for clause in phi.clauses.iter() {
+    for clause in phi.iter() {
         let mut is_clause_met = false;
-        for atom in clause.atoms.iter() {
-            let atom_idx = atom.to_usize().expect("bad logic");
-            let atom_curr_truthiness_opt = gamma.gamma.get(atom_idx).expect("bad logic");
+        for (atom, expected_truthiness) in clause.iter() {
+            let atom_curr_truthiness_opt = gamma.get(atom).expect("bad logic");
             if atom_curr_truthiness_opt.is_none() {
                 continue;
             }
 
             let atom_curr_truthiness = atom_curr_truthiness_opt.expect("bad logic");
-            let expected_truthiness = *clause.truthiness.get(atom_idx).expect("bad logic");
             if atom_curr_truthiness == expected_truthiness {
                 is_clause_met = true;
                 break;

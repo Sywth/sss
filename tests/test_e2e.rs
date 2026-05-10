@@ -10,7 +10,7 @@ fn e2e_sat() {
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("SAT"), "got: {stdout}");
+    assert!(stdout.contains("SAT"), "got: '{stdout}'");
 }
 
 #[test]
@@ -23,5 +23,5 @@ fn e2e_unsat() {
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("UNSAT"), "got: {stdout}");
+    assert!(stdout.contains("UNSAT"), "got: '{stdout}'");
 }

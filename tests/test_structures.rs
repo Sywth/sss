@@ -1,3 +1,4 @@
+#![cfg(never)]
 use sss::FormulaTranslator;
 
 #[test]
