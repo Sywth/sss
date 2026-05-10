@@ -53,7 +53,11 @@ impl<K: SwInt, V: SwUint> FormulaTranslator<K, V> {
                 let k_atom = k_litearl.abs();
                 let v_atom = *dimacs_id_to_sw_id.get(&k_atom).expect("bad logic");
 
-                let polarity: bool = match k_litearl.signum().to_i8().unwrap() {
+                let polarity: bool = match k_litearl
+                    .signum()
+                    .to_i8()
+                    .expect("could not parse output from signum to i8")
+                {
                     1 => true,
                     -1 => false,
                     _ => panic!("malformed formula, found literal with value 0"),

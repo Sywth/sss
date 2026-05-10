@@ -1,7 +1,7 @@
-use sss::{FormulaTranslator, SatFormula, parse_dimacs_file};
+use sss::{parse_dimacs_file, FormulaTranslator, SatFormula};
 use std::path::Path;
 use std::process::ExitCode;
-use tracing::{Level, debug, error};
+use tracing::{debug, error, Level};
 
 // More of the front end
 const STR_ERROR: &str = "ERR";
