@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use rand::RngExt;
 
 use crate::{
@@ -12,139 +10,203 @@ pub trait SatFormula {
     fn is_sat(&self) -> bool;
 }
 
-pub struct Assignment<T: SwUint> {
-    pub gamma: HashMap<T, bool>,
+pub struct Assignment {
+    pub gamma: Vec<Option<bool>>,
 }
 
-impl<T: SwUint> Default for Assignment<T> {
-    fn default() -> Self {
-        Self::new()
+impl Assignment {
+    pub fn new(size: usize) -> Self {
+        Assignment {
+            gamma: vec![None; size],
+        }
     }
 }
 
-impl<T: SwUint> Assignment<T> {
-    pub fn new() -> Self {
-        Assignment {
-            gamma: HashMap::new(),
+fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
+    // note this is a weird way of doing [1..phi.max_atom()]
+    let mut atoms: Vec<T> = Vec::new();
+    for clause in phi.clauses.iter() {
+        for atom in clause.atoms.iter() {
+            atoms.push(*atom);
         }
     }
 
-    pub fn assign(&mut self, atom: T, truth_value: bool) {
-        self.gamma.insert(atom, truth_value);
+    #[cfg(debug_assertions)]
+    {
+        let max_atom = atoms
+            .iter()
+            .reduce(|a, b| if a > b { a } else { b })
+            .expect("bad logic");
+        let atoms_len_eq_max_atom = atoms.len() == max_atom.to_usize().expect("bad logic");
+        assert!(
+            atoms_len_eq_max_atom,
+            "this should just be [1, 2, ..., max atom in phi]"
+        );
     }
-}
 
-// TODO: OPTIMIZE: Find a better method for this asap
-fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
-    return Vec::new();
-}
-
-// TODO: OPTIMIZE: Find a better method for this asap
-fn get_atoms_gamma<T: SwUint>(gamma: &Assignment<T>) -> Vec<T> {
-    return Vec::new();
+    atoms
 }
 
 // OPTIMIZE: In future we might just want to return a reference the Assignment if there are
 // lots of atoms per formula
-fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &Assignment<T>) -> Option<Assignment<T>> {
-    // TODO: OPTIMIZE: Find a better method for this asap
-    let atoms_phi = get_atoms_phi(phi);
-    let atoms_gamma = get_atoms_gamma(gamma);
-
+fn up<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut Assignment) -> bool {
     for clause in phi.clauses.iter() {
         // if there is a literal in this clause that is
         // met in gamma skip as its satisfied
 
         let mut is_clause_met = false;
         for (i, atom) in clause.atoms.iter().enumerate() {
-            let truthiness = clause.truthiness.get(i).expect("bad logic");
-            let Some(curr_assigned_truthiness) = gamma.gamma.get(atom) else {
-                // this atom has not been closed yet, skip
-                continue;
-            };
+            let truthiness = *clause.truthiness.get(i).expect("bad logic");
+            let atom_idx = atom.to_usize().expect("bad logic, should cast to usize");
+            let curr_atom_assingment_opt = gamma
+                .gamma
+                .get(atom_idx)
+                .expect("bad logic, this should already be fully initialized");
 
-            // this atom has been closed but is
-            // it what we need to meet this clause
-            if truthiness == curr_assigned_truthiness {
+            // if current atom is not closed by gamma, skip
+            if curr_atom_assingment_opt.is_none() {
+                continue;
+            }
+            let curr_atom_assingment = curr_atom_assingment_opt.expect("bad logic");
+
+            // this literal is in gamma, hence clause met
+            if truthiness == curr_atom_assingment {
                 is_clause_met = true;
                 break;
             }
         }
 
+        // this clause is met, hence onto the next
         if is_clause_met {
             continue;
         }
 
-        let mut unassigned = Vec::new();
-        for atom in &atoms_phi {
-            if !atoms_gamma.contains(atom) {
-                unassigned.push(*atom);
+        // build a set of atoms not closed by gamma for this clause
+        let mut unassigned: Option<(T, bool)> = None;
+        let mut is_unit_clause: bool = false;
+        for (i, atom) in clause.atoms.iter().enumerate() {
+            let atom_idx = atom.to_usize().expect("bad logic");
+            let atom_in_gamma = gamma.gamma.get(atom_idx);
+            let required_truthiness = *clause.truthiness.get(i).expect("bad logic");
+
+            if atom_in_gamma.is_none() {
+                // we have more than one unassigned literal in this clause
+                if unassigned.is_some() {
+                    is_unit_clause = false;
+                    break;
+                }
+
+                unassigned = Some((*atom, required_truthiness));
+                is_unit_clause = true;
             }
         }
 
-        if unassigned.len() == 0 {
-            return None;
+        // clause has not been met and there are no open
+        // literals left to be met, try different branch
+        if unassigned.is_none() {
+            assert!(!is_unit_clause);
+            return false;
         }
 
-        if unassigned.len() == 1 {
-            // TODO: Figure out how to get this element popped out
-            //todo!()
+        // we have two or more open literals
+        if !is_unit_clause {
+            continue;
         }
 
-        // unassigned len > 1 hence many branches hence just skip this clause for now
+        assert!(is_unit_clause && unassigned.is_some());
+        let unassigned = unassigned.expect("bad logic");
+        let atom_idx = unassigned.0.to_usize().expect("bad logic");
+        let atom_truth = unassigned.1;
+        gamma.gamma.insert(atom_idx, Some(atom_truth));
+        // OPTIMIZE: Tail recursion with become keyword
+        return up(phi, gamma);
     }
 
-    // TODO: Figure out what to return
-    Some(gamma)
+    true
 }
 
-fn is_valid<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &Assignment<T>) -> bool {
-    todo!()
-}
-
-// OPTIMIZE: we should cache this no, then minimal penalty on calling it
-fn get_open_atoms<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &Assignment<T>) -> Vec<T> {
-    let mut atoms = Vec::new();
+fn is_valid<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, gamma: &Assignment) -> bool {
     for clause in phi.clauses.iter() {
-        for a in &clause.atoms {
-            if !gamma.gamma.contains_key(a) {
-                atoms.push(*a);
+        let mut is_clause_met = false;
+        for atom in clause.atoms.iter() {
+            let atom_idx = atom.to_usize().expect("bad logic");
+            let atom_curr_truthiness_opt = gamma.gamma.get(atom_idx).expect("bad logic");
+            if atom_curr_truthiness_opt.is_none() {
+                continue;
             }
+
+            let atom_curr_truthiness = atom_curr_truthiness_opt.expect("bad logic");
+            let expected_truthiness = *clause.truthiness.get(atom_idx).expect("bad logic");
+            if atom_curr_truthiness == expected_truthiness {
+                is_clause_met = true;
+                break;
+            }
+        }
+
+        // every clause must be met to have
+        // gamma |= phi
+        if !is_clause_met {
+            return false;
         }
     }
 
-    atoms
+    true
 }
 
-fn dpll<T: SwUint>(phi: &FormulaConjunctiveBasic<T>, mut gamma: &Assignment<T>) -> bool {
+fn get_open_atoms<T: SwUint>(atoms_phi: &Vec<T>, gamma: &Assignment) -> Vec<T> {
+    let mut open_atoms = Vec::new();
+    for a in atoms_phi {
+        let a_idx = a.to_usize().expect("bad logic");
+        let a_opt = gamma
+            .gamma
+            .get(a_idx)
+            .expect("bad logic, gamma should contain slot for every atom");
+
+        if a_opt.is_none() {
+            open_atoms.push(*a);
+        }
+    }
+
+    open_atoms
+}
+
+fn dpll<T: SwUint>(
+    phi: &FormulaConjunctiveBasic<T>,
+    atoms_phi: &Vec<T>,
+    gamma: &mut Assignment,
+) -> bool {
     let res = up(phi, gamma);
-    if res.is_none() {
+    if !res {
         return false;
     }
 
-    let mut gamma = res.expect("bad if logic");
-
-    if is_valid(phi, &gamma) {
+    if is_valid(phi, gamma) {
         return true;
     }
 
-    let open_atoms: &Vec<T> = &get_open_atoms(phi, &gamma);
+    let open_atoms: &Vec<T> = &get_open_atoms(atoms_phi, gamma);
     let idx = rand::rng().random_range(0..open_atoms.len());
-    let a = open_atoms.get(idx).expect("bad range logic");
+    let a_idx = open_atoms
+        .get(idx)
+        .expect("bad range logic")
+        .to_usize()
+        .expect("bad logic");
 
-    gamma.assign(*a, true);
-    if dpll(phi, &gamma) {
+    gamma.gamma.insert(a_idx, Some(true));
+    if dpll(phi, atoms_phi, gamma) {
         return true;
     }
 
-    gamma.assign(*a, false);
-    dpll(phi, &gamma)
+    gamma.gamma.insert(a_idx, Some(false));
+    dpll(phi, atoms_phi, gamma)
 }
 
 impl<T: SwUint> SatFormula for FormulaConjunctiveBasic<T> {
     fn is_sat(&self) -> bool {
         // in the future we might swap this out for cdcl
-        dpll(self, &Assignment::new())
+        let atoms_phi = get_atoms_phi(self);
+        let mut assignment = Assignment::new(atoms_phi.len());
+        dpll(self, &atoms_phi, &mut assignment)
     }
 }
 
