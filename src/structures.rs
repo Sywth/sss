@@ -3,7 +3,6 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     iter::{self},
-    ops::{Index, IndexMut},
     str::FromStr,
     vec,
 };

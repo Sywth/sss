@@ -1,7 +1,7 @@
 use std::process::Command;
 
 #[test]
-fn e2e_sat() {
+fn e2e_sat_1() {
     let out = Command::new(env!("CARGO_BIN_EXE_sss"))
         .arg(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -9,12 +9,25 @@ fn e2e_sat() {
         ))
         .output()
         .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("SAT"), "got: '{stdout}'");
+    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(stdout, "SAT", "got: '{stdout}'");
 }
 
 #[test]
-fn e2e_unsat() {
+fn e2e_unsat_1() {
+    let out = Command::new(env!("CARGO_BIN_EXE_sss"))
+        .arg(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/dimacs_sat/mytest-01.cnf"
+        ))
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(stdout, "UNSAT", "got: '{stdout}'");
+}
+
+#[test]
+fn e2e_unsat_2() {
     let out = Command::new(env!("CARGO_BIN_EXE_sss"))
         .arg(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -22,6 +35,6 @@ fn e2e_unsat() {
         ))
         .output()
         .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("UNSAT"), "got: '{stdout}'");
+    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    assert_eq!(stdout, "UNSAT", "got: '{stdout}'");
 }
