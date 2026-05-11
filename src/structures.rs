@@ -3,6 +3,7 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     iter::{self},
+    ops::{Index, IndexMut},
     str::FromStr,
     vec,
 };
@@ -11,10 +12,61 @@ use std::{
 pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Display + Debug + ToPrimitive {}
 impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Display + Debug + ToPrimitive {}
 
+#[inline]
 pub fn get_atom_idx<T: SwUint>(atom: T) -> usize {
     (T::sub(atom, T::one()))
         .to_usize()
         .expect("given atom could not be cast to usize, was it 0?")
+}
+
+// -------------------------------
+// Assignment
+// -------------------------------
+pub trait Assignment<T: SwUint>: Clone {
+    fn new(size: usize) -> Self;
+    fn get(&self, atom: T) -> &Option<bool>;
+    fn is_set(&self, atom: T) -> bool;
+    fn set(&mut self, atom: T, value: bool);
+    fn clear(&mut self, atom: T);
+}
+
+#[derive(Debug, Clone)]
+pub struct AssignmentBasic {
+    gamma: Vec<Option<bool>>,
+}
+
+impl<T: SwUint> Assignment<T> for AssignmentBasic {
+    fn new(size: usize) -> Self {
+        AssignmentBasic {
+            gamma: vec![None; size],
+        }
+    }
+
+    fn get(&self, atom: T) -> &Option<bool> {
+        let idx = get_atom_idx(atom);
+        self.gamma
+            .get(idx)
+            .expect("bad logic, gamma should have a slot for every atom")
+    }
+
+    fn is_set(&self, atom: T) -> bool {
+        let idx = get_atom_idx(atom);
+        let Some(_) = self.gamma.get(idx) else {
+            return false;
+        };
+
+        true
+    }
+
+    fn set(&mut self, atom: T, truthiness: bool) {
+        let idx = get_atom_idx(atom);
+        self.gamma.insert(idx, Some(truthiness));
+    }
+
+    fn clear(&mut self, atom: T) {
+        let idx = get_atom_idx(atom);
+        self.gamma.insert(idx, None);
+    }
 }
 
 // -------------------------------
