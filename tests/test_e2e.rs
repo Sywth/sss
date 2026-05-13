@@ -1,66 +1,43 @@
 use std::process::Command;
 
-#[test]
-fn e2e_sat_1() {
+fn asset(rel: &str) -> String {
+    format!("{}/{}", env!("CARGO_MANIFEST_DIR"), rel)
+}
+
+fn run_solver(path: &str) -> String {
     let out = Command::new(env!("CARGO_BIN_EXE_sss"))
-        .arg(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/dimacs_sat/50v_80c.cnf"
-        ))
+        .arg(path)
         .output()
         .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    assert_eq!(stdout, "SAT", "got: '{stdout}'");
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
 #[test]
-fn e2e_unsat_1() {
-    let out = Command::new(env!("CARGO_BIN_EXE_sss"))
-        .arg(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/dimacs_sat/mytest-01.cnf"
-        ))
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    assert_eq!(stdout, "UNSAT", "got: '{stdout}'");
+fn e2e_sat_1() {
+    assert_eq!(run_solver(&asset("assets/dimacs_sat/50v_80c.cnf")), "SAT");
 }
 
 #[test]
 fn e2e_sat_0v_0c() {
-    let out = Command::new(env!("CARGO_BIN_EXE_sss"))
-        .arg(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/dimacs_sat/0v_0c.cnf"
-        ))
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    assert_eq!(stdout, "SAT", "got: '{stdout}'");
+    assert_eq!(run_solver(&asset("assets/dimacs_sat/0v_0c.cnf")), "SAT");
 }
 
 #[test]
 fn e2e_unsat_0v_1c() {
-    let out = Command::new(env!("CARGO_BIN_EXE_sss"))
-        .arg(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/dimacs_unsat/0v_1c.cnf"
-        ))
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    assert_eq!(stdout, "UNSAT", "got: '{stdout}'");
+    assert_eq!(run_solver(&asset("assets/dimacs_unsat/0v_1c.cnf")), "UNSAT");
+}
+
+#[test]
+fn e2e_sat_3v_3c() {
+    assert_eq!(run_solver(&asset("assets/dimacs_sat/3v_3c.cnf")), "SAT");
 }
 
 #[test]
 fn e2e_unsat_2() {
-    let out = Command::new(env!("CARGO_BIN_EXE_sss"))
-        .arg(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/dimacs_unsat/60v_160c.cnf"
-        ))
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    assert_eq!(stdout, "UNSAT", "got: '{stdout}'");
+    assert_eq!(run_solver(&asset("assets/dimacs_unsat/60v_160c.cnf")), "UNSAT");
+}
+
+#[test]
+fn e2e_unsat_3v_3c() {
+    assert_eq!(run_solver(&asset("assets/dimacs_unsat/3v_3c.cnf")), "UNSAT");
 }
