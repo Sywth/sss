@@ -15,3 +15,9 @@ e2e:
 
 test:
     cargo test
+
+b-test:
+    bacon test
+
+b-unit:
+    bacon unit

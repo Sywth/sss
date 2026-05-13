@@ -1,12 +1,12 @@
 use rand::RngExt;
 
 use crate::{
+    FormulaTranslator,
     parser::SwInt,
     structures::{
         Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive,
         FormulaConjunctiveBasic, SwUint,
     },
-    FormulaTranslator,
 };
 
 pub trait SatFormula {
@@ -107,12 +107,11 @@ fn is_valid<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma
     for clause in phi.iter() {
         let mut is_clause_met = false;
         for (atom, expected_truthiness) in clause.iter() {
-            let atom_curr_truthiness_opt = gamma.get(atom);
-            if atom_curr_truthiness_opt.is_none() {
+            let Some(atom_curr_truthiness) = gamma.get(atom) else {
+                // unassigned
                 continue;
-            }
+            };
 
-            let atom_curr_truthiness = atom_curr_truthiness_opt.expect("bad logic");
             if atom_curr_truthiness == expected_truthiness {
                 is_clause_met = true;
                 break;

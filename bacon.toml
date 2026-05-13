@@ -1,0 +1,5 @@
+[jobs.test]
+command = ["cargo", "test"]
+
+[jobs.unit]
+command = ["cargo", "test", "--lib", "--no-fail-fast"]
