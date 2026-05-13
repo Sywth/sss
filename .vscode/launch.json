@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug sss",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin",
+                    "sss"
+                ],
+                "filter": {
+                    "name": "sss",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "assets/dimacs_sat/mytest-01.cnf",
+                // "assets/dimacs_sat/50v_80c.cnf",
+                // "assets/dimacs_unsat/60v_160c.cnf",
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_BACKTRACE": "1"
+            }
+        }
+    ]
+}

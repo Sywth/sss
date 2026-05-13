@@ -49,7 +49,7 @@ fn up<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut
 
         let mut is_clause_met = false;
         for (atom, truthiness) in clause.iter() {
-            let Some(curr_atom_assingment) = *gamma.get(atom) else {
+            let Some(curr_atom_assingment) = gamma.get(atom) else {
                 // if current atom is not closed by gamma, skip
                 continue;
             };
@@ -147,6 +147,8 @@ fn dpll<T: SwUint, A: Assignment<T>>(
     atoms_phi: &Vec<T>,
     gamma: &mut A,
 ) -> bool {
+    println!("dpll called with gamma: {:?}", gamma);
+    println!("dpll called with phi: {:?}", phi);
     let res = up(phi, gamma);
     if !res {
         return false;

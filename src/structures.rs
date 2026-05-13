@@ -1,6 +1,6 @@
 use num_traits::{PrimInt, ToPrimitive, Unsigned};
 use std::{
-    fmt::{Debug, Display},
+    fmt::Debug,
     hash::Hash,
     iter::{self},
     str::FromStr,
@@ -8,28 +8,40 @@ use std::{
 };
 
 // Pure backend. We care mainly about performance, software design is not important here.
-pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Display + Debug + ToPrimitive {}
-impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Display + Debug + ToPrimitive {}
+pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Debug + ToPrimitive {}
+impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Debug + ToPrimitive {}
 
 #[inline]
-pub fn get_atom_idx<T: SwUint>(atom: T) -> usize {
+pub fn get_idx_from_atom<T: SwUint>(atom: T) -> usize {
     (T::sub(atom, T::one()))
         .to_usize()
         .expect("given atom could not be cast to usize, was it 0?")
 }
 
+#[inline]
+pub fn get_atom_from_idx<T: SwUint>(idx: usize) -> T {
+    T::from(idx + 1).expect("given idx could not be cast to an atom")
+}
+
+// OPTIMIZE: consider using SSO here?
+const SYMBOL_NEG: &str = "\u{00AC}";
+const SYMBOL_CONJ: &str = "\u{2227}";
+const SYMBOL_DISJ: &str = "\u{2228}";
+const SYMBOL_L_PAREN: &str = "(";
+const SYMBOL_R_PAREN: &str = ")";
+
 // -------------------------------
 // Assignment
 // -------------------------------
-pub trait Assignment<T: SwUint>: Clone {
+pub trait Assignment<T: SwUint>: Clone + Debug {
     fn new(size: usize) -> Self;
-    fn get(&self, atom: T) -> &Option<bool>;
+    fn get(&self, atom: T) -> Option<bool>;
     fn is_set(&self, atom: T) -> bool;
     fn set(&mut self, atom: T, value: bool);
     fn clear(&mut self, atom: T);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AssignmentBasic {
     gamma: Vec<Option<bool>>,
 }
@@ -41,16 +53,17 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
         }
     }
 
-    fn get(&self, atom: T) -> &Option<bool> {
-        let idx = get_atom_idx(atom);
-        self.gamma
+    fn get(&self, atom: T) -> Option<bool> {
+        let idx = get_idx_from_atom(atom);
+        *self
+            .gamma
             .get(idx)
             .expect("bad logic, gamma should have a slot for every atom")
     }
 
     fn is_set(&self, atom: T) -> bool {
-        let idx = get_atom_idx(atom);
-        let Some(_) = self.gamma.get(idx) else {
+        let idx = get_idx_from_atom(atom);
+        let Some(Some(_)) = self.gamma.get(idx) else {
             return false;
         };
 
@@ -58,13 +71,35 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
     }
 
     fn set(&mut self, atom: T, truthiness: bool) {
-        let idx = get_atom_idx(atom);
-        self.gamma.insert(idx, Some(truthiness));
+        let idx = get_idx_from_atom(atom);
+        self.gamma[idx] = Some(truthiness);
     }
 
     fn clear(&mut self, atom: T) {
-        let idx = get_atom_idx(atom);
-        self.gamma.insert(idx, None);
+        let idx = get_idx_from_atom(atom);
+        self.gamma[idx] = None;
+    }
+}
+
+impl Debug for AssignmentBasic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let dbg_str = self
+            .gamma
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &t_opt)| {
+                t_opt.map(|t| {
+                    format!(
+                        "{}{}",
+                        if t { "" } else { SYMBOL_NEG },
+                        get_atom_from_idx::<usize>(i)
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+
+        write!(f, "[{}]", dbg_str)
     }
 }
 
@@ -72,12 +107,12 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
 // Clause
 // -------------------------------
 pub trait ClauseDisjunctive<T: SwUint>:
-    IntoIterator<Item = (T, bool)> + FromIterator<(T, bool)>
+    IntoIterator<Item = (T, bool)> + FromIterator<(T, bool)> + Debug
 {
     fn iter(&self) -> impl Iterator<Item = (T, bool)>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ClauseDisjunctiveBasic<T: SwUint> {
     // Raw propositional atoms
     atoms: Vec<T>,
@@ -119,18 +154,39 @@ impl<T: SwUint> FromIterator<(T, bool)> for ClauseDisjunctiveBasic<T> {
     }
 }
 
+impl<T: SwUint> Debug for ClauseDisjunctiveBasic<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let dbg_str = self
+            .atoms
+            .iter()
+            .enumerate()
+            .map(|(i, _)| {
+                let t = self.truthiness[i];
+                format!(
+                    "{}{}",
+                    if t { "" } else { SYMBOL_NEG },
+                    get_atom_from_idx::<usize>(i)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(SYMBOL_DISJ);
+
+        write!(f, "{}", dbg_str)
+    }
+}
+
 // -------------------------------
 // Formula
 // -------------------------------
 pub trait FormulaConjunctive<T: SwUint>:
-    IntoIterator<Item = Self::Clause> + FromIterator<Self::Clause>
+    IntoIterator<Item = Self::Clause> + FromIterator<Self::Clause> + Debug
 {
     type Clause: ClauseDisjunctive<T>;
     // TODO: OPTIMIZE: Add lifetime later so we can return a reference
     fn iter(&self) -> impl Iterator<Item = Self::Clause>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FormulaConjunctiveBasic<T: SwUint> {
     clauses: Vec<ClauseDisjunctiveBasic<T>>,
 }
@@ -163,5 +219,18 @@ impl<T: SwUint> FromIterator<ClauseDisjunctiveBasic<T>> for FormulaConjunctiveBa
         Self {
             clauses: it.into_iter().collect(),
         }
+    }
+}
+
+impl<T: SwUint> Debug for FormulaConjunctiveBasic<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let dbg_str = self
+            .clauses
+            .iter()
+            .map(|c| format!("({:?})", c))
+            .collect::<Vec<_>>()
+            .join(SYMBOL_CONJ);
+
+        write!(f, "{}", dbg_str)
     }
 }
