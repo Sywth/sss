@@ -132,6 +132,7 @@ pub fn parse_dimacs_file<T: SwInt, P: AsRef<Path>>(
 
 #[test]
 #[cfg(test)]
+#[allow(double_negations)]
 fn translator_normalizes_polarity() {
     let formula = FormulaTranslator::<i32, u32>::new(vec![vec![--5i32, -322i32], vec![17i32]]);
     let sw_1 = *formula.dimacs_id_to_sw_id.get(&5).unwrap();
