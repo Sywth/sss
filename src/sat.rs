@@ -4,7 +4,7 @@ use crate::{
     parser::SwInt,
     structures::{
         Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive,
-        FormulaConjunctiveBasic, SwUint
+        FormulaConjunctiveBasic, SwUint,
     },
     FormulaTranslator,
 };
@@ -147,8 +147,6 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     atoms_phi: &Vec<T>,
     gamma: &mut A,
 ) -> bool {
-    println!("dpll called with gamma: {}", gamma);
-    println!("dpll called with phi: {}", phi);
     let res = up(phi, gamma);
     if !res {
         return false;
