@@ -1,12 +1,12 @@
 use rand::RngExt;
 
 use crate::{
-    FormulaTranslator,
     parser::SwInt,
     structures::{
         Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive,
         FormulaConjunctiveBasic, SwUint,
     },
+    FormulaTranslator,
 };
 
 pub trait SatFormula {
