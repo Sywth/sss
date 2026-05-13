@@ -26,10 +26,10 @@ fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
 
     #[cfg(debug_assertions)]
     {
-        let max_atom = atoms
-            .iter()
-            .reduce(|a, b| if a > b { a } else { b })
-            .expect("bad logic");
+        let Some(max_atom) = atoms.iter().reduce(|a, b| if a > b { a } else { b }) else {
+            // zero variables
+            return atoms;
+        };
         let atoms_len_eq_max_atom = atoms.len() == max_atom.to_usize().expect("bad logic");
         assert!(
             atoms_len_eq_max_atom,
@@ -224,7 +224,8 @@ fn dpll_sat_3v_3c() {
 #[test]
 #[cfg(test)]
 fn dpll_sat_empty_formula() {
-    // no clauses — vacuously SAT
+    // an empty formula is always true as its an empty conjunction
+    // therefore SAT
     let phi = FormulaConjunctiveBasic::<u32>::new(Vec::<Vec<(u32, bool)>>::new());
     assert!(phi.is_sat());
 }
@@ -232,7 +233,8 @@ fn dpll_sat_empty_formula() {
 #[test]
 #[cfg(test)]
 fn dpll_unsat_empty_clause() {
-    // one empty clause — can never be satisfied
+    // an empty clauses is always false as its an empty disjunction
+    // therefore UNSAT
     let phi = FormulaConjunctiveBasic::<u32>::new([Vec::<(u32, bool)>::new()]);
     assert!(!phi.is_sat());
 }
