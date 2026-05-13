@@ -4,7 +4,7 @@ use crate::{
     parser::SwInt,
     structures::{
         Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive,
-        FormulaConjunctiveBasic, SwUint,
+        FormulaConjunctiveBasic, SwUint
     },
     FormulaTranslator,
 };
@@ -142,13 +142,13 @@ fn get_open_atoms<T: SwUint, A: Assignment<T>>(atoms_phi: &Vec<T>, gamma: &A) ->
     open_atoms
 }
 
-fn dpll<T: SwUint, A: Assignment<T>>(
+fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     phi: &FormulaConjunctiveBasic<T>,
     atoms_phi: &Vec<T>,
     gamma: &mut A,
 ) -> bool {
-    println!("dpll called with gamma: {:?}", gamma);
-    println!("dpll called with phi: {:?}", phi);
+    println!("dpll called with gamma: {}", gamma);
+    println!("dpll called with phi: {}", phi);
     let res = up(phi, gamma);
     if !res {
         return false;

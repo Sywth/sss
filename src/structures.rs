@@ -1,6 +1,6 @@
 use num_traits::{PrimInt, ToPrimitive, Unsigned};
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     hash::Hash,
     iter::{self},
     str::FromStr,
@@ -8,8 +8,8 @@ use std::{
 };
 
 // Pure backend. We care mainly about performance, software design is not important here.
-pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Debug + ToPrimitive {}
-impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Debug + ToPrimitive {}
+pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Debug + Display + ToPrimitive {}
+impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Debug + Display + ToPrimitive {}
 
 #[inline]
 pub fn get_idx_from_atom<T: SwUint>(atom: T) -> usize {
@@ -41,7 +41,7 @@ pub trait Assignment<T: SwUint>: Clone + Debug {
     fn clear(&mut self, atom: T);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AssignmentBasic {
     gamma: Vec<Option<bool>>,
 }
@@ -81,7 +81,7 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
     }
 }
 
-impl Debug for AssignmentBasic {
+impl Display for AssignmentBasic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let dbg_str = self
             .gamma
@@ -112,7 +112,7 @@ pub trait ClauseDisjunctive<T: SwUint>:
     fn iter(&self) -> impl Iterator<Item = (T, bool)>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClauseDisjunctiveBasic<T: SwUint> {
     // Raw propositional atoms
     atoms: Vec<T>,
@@ -154,19 +154,15 @@ impl<T: SwUint> FromIterator<(T, bool)> for ClauseDisjunctiveBasic<T> {
     }
 }
 
-impl<T: SwUint> Debug for ClauseDisjunctiveBasic<T> {
+impl<T: SwUint> Display for ClauseDisjunctiveBasic<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let dbg_str = self
             .atoms
             .iter()
             .enumerate()
-            .map(|(i, _)| {
+            .map(|(i, &a)| {
                 let t = self.truthiness[i];
-                format!(
-                    "{}{}",
-                    if t { "" } else { SYMBOL_NEG },
-                    get_atom_from_idx::<usize>(i)
-                )
+                format!("{}{}", if t { "" } else { SYMBOL_NEG }, a)
             })
             .collect::<Vec<_>>()
             .join(SYMBOL_DISJ);
@@ -186,7 +182,7 @@ pub trait FormulaConjunctive<T: SwUint>:
     fn iter(&self) -> impl Iterator<Item = Self::Clause>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FormulaConjunctiveBasic<T: SwUint> {
     clauses: Vec<ClauseDisjunctiveBasic<T>>,
 }
@@ -222,12 +218,12 @@ impl<T: SwUint> FromIterator<ClauseDisjunctiveBasic<T>> for FormulaConjunctiveBa
     }
 }
 
-impl<T: SwUint> Debug for FormulaConjunctiveBasic<T> {
+impl<T: SwUint> Display for FormulaConjunctiveBasic<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let dbg_str = self
             .clauses
             .iter()
-            .map(|c| format!("({:?})", c))
+            .map(|c| format!("({})", c))
             .collect::<Vec<_>>()
             .join(SYMBOL_CONJ);
 
