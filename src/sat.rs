@@ -184,3 +184,67 @@ impl<K: SwInt, V: SwUint> SatFormula for FormulaTranslator<K, V> {
         self.cnf.is_sat()
     }
 }
+
+// --------------------------------
+// Unit Tests
+// --------------------------------
+
+#[test]
+#[cfg(test)]
+fn dpll_sat_tautological_clause() {
+    // (1∨¬1) — tautology, SAT without forcing any assignment
+    let phi = FormulaConjunctiveBasic::<u32>::new([vec![(1u32, true), (1u32, false)]]);
+    assert!(phi.is_sat());
+}
+
+#[test]
+#[cfg(test)]
+fn dpll_unsat_up_contradiction() {
+    // (1∨2) ∧ (¬1∨2) ∧ (¬2) — UP forces 2=false then 1=true then clause 2 fails
+    let phi = FormulaConjunctiveBasic::<u32>::new([
+        vec![(1u32, true), (2u32, true)],
+        vec![(1u32, false), (2u32, true)],
+        vec![(2u32, false)],
+    ]);
+    assert!(!phi.is_sat());
+}
+
+#[test]
+#[cfg(test)]
+fn dpll_sat_3v_3c() {
+    // (1∨2) ∧ (¬1∨2) ∧ (¬2∨3)
+    let phi = FormulaConjunctiveBasic::<u32>::new([
+        vec![(1u32, true), (2u32, true)],
+        vec![(1u32, false), (2u32, true)],
+        vec![(2u32, false), (3u32, true)],
+    ]);
+    assert!(phi.is_sat());
+}
+
+#[test]
+#[cfg(test)]
+fn dpll_sat_empty_formula() {
+    // no clauses — vacuously SAT
+    let phi = FormulaConjunctiveBasic::<u32>::new(Vec::<Vec<(u32, bool)>>::new());
+    assert!(phi.is_sat());
+}
+
+#[test]
+#[cfg(test)]
+fn dpll_unsat_empty_clause() {
+    // one empty clause — can never be satisfied
+    let phi = FormulaConjunctiveBasic::<u32>::new([Vec::<(u32, bool)>::new()]);
+    assert!(!phi.is_sat());
+}
+
+#[test]
+#[cfg(test)]
+fn dpll_unsat_3v_3c() {
+    // (1) ∧ (¬1) ∧ (2∨3)
+    let phi = FormulaConjunctiveBasic::<u32>::new([
+        vec![(1u32, true)],
+        vec![(1u32, false)],
+        vec![(2u32, true), (3u32, true)],
+    ]);
+    assert!(!phi.is_sat());
+}

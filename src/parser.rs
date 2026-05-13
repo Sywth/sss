@@ -125,3 +125,70 @@ pub fn parse_dimacs_file<T: SwInt, P: AsRef<Path>>(
 
     Ok(FormulaTranslator::new(conjunctions))
 }
+
+// --------------------------------
+// Unit Tests
+// --------------------------------
+
+#[test]
+#[cfg(test)]
+fn translator_normalizes_polarity() {
+    let formula = FormulaTranslator::<i32, u32>::new(vec![vec![--5i32, -322i32], vec![17i32]]);
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&5).unwrap();
+    let sw_2 = *formula.dimacs_id_to_sw_id.get(&322).unwrap();
+    let sw_3 = *formula.dimacs_id_to_sw_id.get(&17).unwrap();
+    let clauses: Vec<Vec<(u32, bool)>> = formula
+        .cnf
+        .clone()
+        .into_iter()
+        .map(|c| c.into_iter().collect())
+        .collect();
+    assert_eq!(clauses[0], vec![(sw_1, true), (sw_2, false)]);
+    assert_eq!(clauses[1], vec![(sw_3, true)]);
+}
+
+#[test]
+#[cfg(test)]
+fn translator_polarity_unsat() {
+    use crate::sat::SatFormula;
+    // (1) ∧ (¬1) is unsat, basic polarity test
+    let formula = FormulaTranslator::<i32, u32>::new(vec![vec![1i32], vec![-1i32]]);
+    assert!(!formula.cnf.is_sat());
+}
+
+#[test]
+#[cfg(test)]
+fn translator_large_id_normalized() {
+    let formula = FormulaTranslator::<i32, u32>::new(vec![vec![242i32, -1i32]]);
+    let sw_242 = *formula.dimacs_id_to_sw_id.get(&242).unwrap();
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&1).unwrap();
+    let clauses: Vec<Vec<(u32, bool)>> = formula
+        .cnf
+        .clone()
+        .into_iter()
+        .map(|c| c.into_iter().collect())
+        .collect();
+    assert_eq!(clauses[0], vec![(sw_242, true), (sw_1, false)]);
+}
+
+#[test]
+#[cfg(test)]
+fn translator_0v_0c_no_clauses() {
+    let formula = FormulaTranslator::<i32, u32>::new(Vec::<Vec<i32>>::new());
+    assert_eq!(formula.cnf.into_iter().count(), 0);
+    assert!(formula.dimacs_id_to_sw_id.is_empty());
+}
+
+#[test]
+#[cfg(test)]
+fn translator_0v_1c_empty_clause() {
+    let formula = FormulaTranslator::<i32, u32>::new(vec![Vec::<i32>::new()]);
+    let clauses: Vec<Vec<(u32, bool)>> = formula
+        .cnf
+        .into_iter()
+        .map(|c| c.into_iter().collect())
+        .collect();
+    assert_eq!(clauses.len(), 1);
+    assert!(clauses[0].is_empty());
+    assert!(formula.dimacs_id_to_sw_id.is_empty());
+}

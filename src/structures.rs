@@ -230,3 +230,21 @@ impl<T: SwUint> Display for FormulaConjunctiveBasic<T> {
         write!(f, "{}", dbg_str)
     }
 }
+
+// --------------------------------
+// Unit Tests
+// --------------------------------
+
+#[test]
+#[cfg(test)]
+fn assignment_set_get_clear() {
+    let mut gamma = <AssignmentBasic as Assignment<u32>>::new(3);
+    assert_eq!(gamma.get(1u32), None);
+    assert!(!gamma.is_set(1u32));
+    gamma.set(1u32, true);
+    assert_eq!(gamma.get(1u32), Some(true));
+    assert!(gamma.is_set(1u32));
+    gamma.clear(1u32);
+    assert_eq!(gamma.get(1u32), None);
+    assert!(!gamma.is_set(1u32));
+}
