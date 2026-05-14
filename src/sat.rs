@@ -10,6 +10,11 @@ use crate::{
 };
 
 pub trait SatFormula {
+    // TODO: Instead this should have signature 
+    // fn is_sat(&sefl) -> Assignment | UnsatProof
+    // but then we also have to define a proof unsat 
+    // and also ideally build verifiers for both to verify our proofs
+    // make sense 
     fn is_sat(&self) -> bool;
 }
 
@@ -154,6 +159,9 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
         return true;
     }
 
+    // TODO: We already say we're using FormulaConjunctiveBasic 
+    // lets just skip the atoms_phi thing and say our vars 1..=open_atoms.len()
+    // hence a = choice(1..=open_atoms.len())
     let open_atoms: &Vec<T> = &get_open_atoms(atoms_phi, gamma);
     let idx = rand::rng().random_range(0..open_atoms.len());
     let a = open_atoms[idx];
