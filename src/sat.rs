@@ -128,17 +128,16 @@ fn is_valid<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma
     true
 }
 
-fn get_open_atoms<T: SwUint, A: Assignment<T>>(atoms_phi: &Vec<T>, gamma: &A) -> Vec<T> {
-    let mut open_atoms = Vec::new();
-    for &a in atoms_phi {
-        let a_opt = gamma.get(a);
-
-        if a_opt.is_none() {
-            open_atoms.push(a);
-        }
-    }
-
-    open_atoms
+fn get_open_atoms<T: SwUint, A: Assignment<T>>(atoms_phi: &[T], gamma: &A) -> Vec<T> {
+    atoms_phi
+        .iter()
+        .filter_map(|&a| {
+            if gamma.get(a).is_none() {
+                return Some(a);
+            }
+            None
+        })
+        .collect()
 }
 
 fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
@@ -156,8 +155,8 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     }
 
     let open_atoms: &Vec<T> = &get_open_atoms(atoms_phi, gamma);
-    let a = rand::rng().random_range(1..=open_atoms.len());
-    let a = T::from(a).expect("bad logic, cant cast");
+    let idx = rand::rng().random_range(0..open_atoms.len());
+    let a = open_atoms[idx];
 
     let mut gamma_cloned = gamma.clone();
     gamma_cloned.set(a, true);
