@@ -6,7 +6,7 @@
 
 ## Info
 
-Project is WIP, hence no builds yet. You can run against a file in the [DIMACS](https://jix.github.io/varisat/manual/0.2.0/formats/dimacs.html) cnf format using cargo like so
+Project is WIP, hence no builds yet. You can run against a file in the [DIMACS](https://people.sc.fsu.edu/~jburkardt/data/cnf/cnf.html) cnf format using cargo like so
 
 ```bash
 cargo run -- path/to/dimacs/file.cnf
