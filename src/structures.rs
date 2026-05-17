@@ -39,6 +39,7 @@ pub trait Assignment<T: SwUint>: Clone + Debug + IntoIterator<Item = Option<bool
     fn is_set(&self, atom: T) -> bool;
     fn set(&mut self, atom: T, value: bool);
     fn clear(&mut self, atom: T);
+    fn as_formatted_str(&self) -> String;
 }
 
 #[derive(Clone, Debug)]
@@ -78,6 +79,17 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
     fn clear(&mut self, atom: T) {
         let idx = get_idx_from_atom(atom);
         self.gamma[idx] = None;
+    }
+
+    fn as_formatted_str(&self) -> String {
+        let mut ss = String::with_capacity(self.gamma.len());
+        self.gamma.iter().for_each(|t_opt| match t_opt {
+            Some(true) => ss.push('1'),
+            Some(false) => ss.push('0'),
+            None => ss.push('-'),
+        });
+
+        ss
     }
 }
 

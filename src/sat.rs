@@ -177,6 +177,7 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     }
 
     if is_valid(phi, gamma) {
+        println!("Valid Assignment:\n{}", gamma.as_formatted_str());
         return true;
     }
 
