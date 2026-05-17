@@ -1,21 +1,40 @@
 use rand::RngExt;
 
 use crate::{
+    as_colored,
     parser::SwInt,
     structures::{
         Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive,
         FormulaConjunctiveBasic, SwUint,
     },
+    util::AnsiColor,
     FormulaTranslator,
 };
 
 pub trait SatFormula {
-    // TODO: Instead this should have signature 
+    // TODO: Instead this should have signature
     // fn is_sat(&sefl) -> Assignment | UnsatProof
-    // but then we also have to define a proof unsat 
+    // but then we also have to define a proof unsat
     // and also ideally build verifiers for both to verify our proofs
-    // make sense 
+    // make sense
     fn is_sat(&self) -> bool;
+}
+
+fn log_assignment<T: SwUint, A: Assignment<T>>(assignment: &A) {
+    assignment.clone().into_iter().for_each(|val_opt| {
+        let Some(val) = val_opt else {
+            print!("{}", as_colored("-", AnsiColor::Grey));
+            return;
+        };
+
+        let msg = if val {
+            as_colored("1", AnsiColor::Green)
+        } else {
+            as_colored("0", AnsiColor::Red)
+        };
+        print!("{}", msg);
+    });
+    println!();
 }
 
 fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
@@ -150,6 +169,8 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     atoms_phi: &Vec<T>,
     gamma: &mut A,
 ) -> bool {
+    log_assignment(gamma);
+
     let res = up(phi, gamma);
     if !res {
         return false;
@@ -159,7 +180,7 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
         return true;
     }
 
-    // TODO: We already say we're using FormulaConjunctiveBasic 
+    // TODO: We already say we're using FormulaConjunctiveBasic
     // lets just skip the atoms_phi thing and say our vars 1..=open_atoms.len()
     // hence a = choice(1..=open_atoms.len())
     let open_atoms: &Vec<T> = &get_open_atoms(atoms_phi, gamma);

@@ -33,7 +33,7 @@ const SYMBOL_R_PAREN: &str = ")";
 // -------------------------------
 // Assignment
 // -------------------------------
-pub trait Assignment<T: SwUint>: Clone + Debug {
+pub trait Assignment<T: SwUint>: Clone + Debug + IntoIterator<Item = Option<bool>> {
     fn new(size: usize) -> Self;
     fn get(&self, atom: T) -> Option<bool>;
     fn is_set(&self, atom: T) -> bool;
@@ -100,6 +100,15 @@ impl Display for AssignmentBasic {
             .join(",");
 
         write!(f, "[{}]", dbg_str)
+    }
+}
+
+impl IntoIterator for AssignmentBasic {
+    type Item = Option<bool>;
+    type IntoIter = std::vec::IntoIter<Option<bool>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.gamma.into_iter()
     }
 }
 
