@@ -11,6 +11,8 @@ use crate::{
     FormulaTranslator,
 };
 
+const PRETTY_OUTPUT: bool = true;
+
 pub trait SatFormula {
     // TODO: Instead this should have signature
     // fn is_sat(&sefl) -> Assignment | UnsatProof
@@ -20,21 +22,23 @@ pub trait SatFormula {
     fn is_sat(&self) -> bool;
 }
 
-fn log_assignment<T: SwUint, A: Assignment<T>>(assignment: &A) {
-    assignment.clone().into_iter().for_each(|val_opt| {
-        let Some(val) = val_opt else {
-            print!("{}", as_colored("-", AnsiColor::Grey));
-            return;
+fn to_str_gamma<T: SwUint, A: Assignment<T>>(gamma: &A) -> String {
+    let mut ss = String::with_capacity(gamma.get_num_atoms());
+    for a_opt in gamma.clone() {
+        let Some(a) = a_opt else {
+            ss.push('-');
+            continue;
         };
 
-        let msg = if val {
+        let colored_atom_str = if a {
             as_colored("1", AnsiColor::Green)
         } else {
             as_colored("0", AnsiColor::Red)
         };
-        print!("{}", msg);
-    });
-    println!();
+        ss.push_str(&colored_atom_str);
+    }
+
+    ss
 }
 
 fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
@@ -169,7 +173,10 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     atoms_phi: &Vec<T>,
     gamma: &mut A,
 ) -> bool {
-    log_assignment(gamma);
+    if PRETTY_OUTPUT {
+        let dbg_str = to_str_gamma(gamma);
+        eprintln!("{}", dbg_str);
+    }
 
     let res = up(phi, gamma);
     if !res {
@@ -177,7 +184,9 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     }
 
     if is_valid(phi, gamma) {
-        println!("Valid Assignment:\n{}", gamma.as_formatted_str());
+        if PRETTY_OUTPUT {
+            eprintln!("Valid Assignment:\n{}", gamma.as_formatted_str());
+        }
         return true;
     }
 
