@@ -27,7 +27,7 @@ fn main() -> ExitCode {
 
     let fp_dimacs = Path::new(&dimacs_path);
 
-    let formula: FormulaTranslator<i32, u32> = match parse_dimacs_file(fp_dimacs) {
+    let formula: FormulaTranslator = match parse_dimacs_file(fp_dimacs) {
         Ok(f) => f,
         Err(e) => {
             error!(path = ?fp_dimacs, error = ?e,);

@@ -297,9 +297,14 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "rand",
+ "structures",
  "tracing",
  "tracing-subscriber",
 ]
+
+[[package]]
+name = "structures"
+version = "0.1.0"
 
 [[package]]
 name = "syn"

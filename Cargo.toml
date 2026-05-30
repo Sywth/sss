@@ -3,7 +3,11 @@ name = "sss"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = [".", "structures"]
+
 [dependencies]
+structures = { path = "structures" }
 num-traits = "0.2.19"
 rand = "0.10.1"
 tracing = "0.1.44"

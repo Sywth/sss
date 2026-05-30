@@ -5,3 +5,8 @@ need_stdout = true
 [jobs.unit]
 command = ["cargo", "test", "--lib", "--no-fail-fast"]
 need_stdout = true
+
+[jobs.structures]
+command = ["cargo", "test", "-p", "structures"]
+need_stdout = true
+

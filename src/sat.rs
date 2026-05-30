@@ -1,15 +1,10 @@
 use rand::RngExt;
 
-use crate::{
-    as_colored,
-    parser::SwInt,
-    structures::{
-        Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive,
-        FormulaConjunctiveBasic, SwUint,
-    },
-    util::AnsiColor,
-    FormulaTranslator,
+use crate::{as_colored, util::AnsiColor, FormulaTranslator};
+use structures::containers::{
+    Assignment, AssignmentBasic, ClauseDisjunctive, FormulaConjunctive, FormulaConjunctiveBasic,
 };
+use structures::primitives::SAtom;
 
 const PRETTY_OUTPUT: bool = true;
 
@@ -22,7 +17,7 @@ pub trait SatFormula {
     fn is_sat(&self) -> bool;
 }
 
-fn to_str_gamma<T: SwUint, A: Assignment<T>>(gamma: &A) -> String {
+fn to_str_gamma(gamma: &impl Assignment) -> String {
     let mut ss = String::with_capacity(gamma.get_num_atoms());
     for a_opt in gamma.clone() {
         let Some(a) = a_opt else {
@@ -41,11 +36,11 @@ fn to_str_gamma<T: SwUint, A: Assignment<T>>(gamma: &A) -> String {
     ss
 }
 
-fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
+fn get_atoms_phi(phi: &FormulaConjunctiveBasic) -> Vec<SAtom> {
     // note this is a weird way of doing [1..phi.max_atom()]
-    let mut atoms: Vec<T> = Vec::new();
+    let mut atoms: Vec<SAtom> = Vec::new();
     for clause in phi.iter() {
-        for (atom, _) in clause.iter() {
+        for (atom, _) in clause.iter_copied() {
             if !atoms.contains(&atom) {
                 atoms.push(atom);
             }
@@ -58,7 +53,7 @@ fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
             // zero variables
             return atoms;
         };
-        let atoms_len_eq_max_atom = atoms.len() == max_atom.to_usize().expect("bad logic");
+        let atoms_len_eq_max_atom = atoms.len() == usize::from(*max_atom);
         assert!(
             atoms_len_eq_max_atom,
             "this should just be [1, 2, ..., max atom in phi]"
@@ -70,13 +65,13 @@ fn get_atoms_phi<T: SwUint>(phi: &FormulaConjunctiveBasic<T>) -> Vec<T> {
 
 // OPTIMIZE: In future we might just want to return a reference the Assignment if there are
 // lots of atoms per formula
-fn up<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut A) -> bool {
+fn up(phi: &FormulaConjunctiveBasic, gamma: &mut impl Assignment) -> bool {
     for clause in phi.iter() {
         // if there is a literal in this clause that is
         // met in gamma skip as its satisfied
 
         let mut is_clause_met = false;
-        for (atom, truthiness) in clause.iter() {
+        for (atom, truthiness) in clause.iter_copied() {
             let Some(curr_atom_assingment) = gamma.get(atom) else {
                 // if current atom is not closed by gamma, skip
                 continue;
@@ -95,9 +90,9 @@ fn up<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut
         }
 
         // figure out if this is a unit clause, and if so what literal
-        let mut unit_literal: Option<(T, bool)> = None;
+        let mut unit_literal: Option<(SAtom, bool)> = None;
         let mut is_not_unit_literal = false;
-        for (atom, required_truthiness) in clause.iter() {
+        for (atom, required_truthiness) in clause.iter_copied() {
             if !gamma.is_set(atom) {
                 // we have more than one unassigned literal in this clause
                 if unit_literal.is_some() {
@@ -131,10 +126,10 @@ fn up<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma: &mut
     true
 }
 
-fn is_valid<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma: &A) -> bool {
+fn is_valid(phi: &FormulaConjunctiveBasic, gamma: &impl Assignment) -> bool {
     for clause in phi.iter() {
         let mut is_clause_met = false;
-        for (atom, expected_truthiness) in clause.iter() {
+        for (atom, expected_truthiness) in clause.iter_copied() {
             let Some(atom_curr_truthiness) = gamma.get(atom) else {
                 // unassigned
                 continue;
@@ -156,7 +151,7 @@ fn is_valid<T: SwUint, A: Assignment<T>>(phi: &FormulaConjunctiveBasic<T>, gamma
     true
 }
 
-fn get_open_atoms<T: SwUint, A: Assignment<T>>(atoms_phi: &[T], gamma: &A) -> Vec<T> {
+fn get_open_atoms(atoms_phi: &[SAtom], gamma: &impl Assignment) -> Vec<SAtom> {
     atoms_phi
         .iter()
         .filter_map(|&a| {
@@ -168,9 +163,9 @@ fn get_open_atoms<T: SwUint, A: Assignment<T>>(atoms_phi: &[T], gamma: &A) -> Ve
         .collect()
 }
 
-fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
-    phi: &FormulaConjunctiveBasic<T>,
-    atoms_phi: &Vec<T>,
+fn dpll<A: Assignment + std::fmt::Display>(
+    phi: &FormulaConjunctiveBasic,
+    atoms_phi: &Vec<SAtom>,
     gamma: &mut A,
 ) -> bool {
     if PRETTY_OUTPUT {
@@ -193,7 +188,7 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     // TODO: We already say we're using FormulaConjunctiveBasic
     // lets just skip the atoms_phi thing and say our vars 1..=open_atoms.len()
     // hence a = choice(1..=open_atoms.len())
-    let open_atoms: &Vec<T> = &get_open_atoms(atoms_phi, gamma);
+    let open_atoms: &Vec<SAtom> = &get_open_atoms(atoms_phi, gamma);
     let idx = rand::rng().random_range(0..open_atoms.len());
     let a = open_atoms[idx];
 
@@ -207,16 +202,16 @@ fn dpll<T: SwUint, A: Assignment<T> + std::fmt::Display>(
     dpll(phi, atoms_phi, gamma)
 }
 
-impl<T: SwUint> SatFormula for FormulaConjunctiveBasic<T> {
+impl SatFormula for FormulaConjunctiveBasic {
     fn is_sat(&self) -> bool {
         // in the future we might swap this out for cdcl
         let atoms_phi = get_atoms_phi(self);
-        let mut assignment = <AssignmentBasic as Assignment<T>>::new(atoms_phi.len());
+        let mut assignment = <AssignmentBasic as Assignment>::new(atoms_phi.len());
         dpll(self, &atoms_phi, &mut assignment)
     }
 }
 
-impl<K: SwInt, V: SwUint> SatFormula for FormulaTranslator<K, V> {
+impl SatFormula for FormulaTranslator {
     fn is_sat(&self) -> bool {
         self.cnf.is_sat()
     }
@@ -230,7 +225,7 @@ impl<K: SwInt, V: SwUint> SatFormula for FormulaTranslator<K, V> {
 #[cfg(test)]
 fn dpll_sat_tautological_clause() {
     // (1∨¬1) — tautology, SAT without forcing any assignment
-    let phi = FormulaConjunctiveBasic::<u32>::new([vec![(1u32, true), (1u32, false)]]);
+    let phi = FormulaConjunctiveBasic::new([vec![(SAtom::from(1), true), (SAtom::from(1), false)]]);
     assert!(phi.is_sat());
 }
 
@@ -238,10 +233,10 @@ fn dpll_sat_tautological_clause() {
 #[cfg(test)]
 fn dpll_unsat_up_contradiction() {
     // (1∨2) ∧ (¬1∨2) ∧ (¬2) — UP forces 2=false then 1=true then clause 2 fails
-    let phi = FormulaConjunctiveBasic::<u32>::new([
-        vec![(1u32, true), (2u32, true)],
-        vec![(1u32, false), (2u32, true)],
-        vec![(2u32, false)],
+    let phi = FormulaConjunctiveBasic::new([
+        vec![(SAtom::from(1), true), (SAtom::from(2), true)],
+        vec![(SAtom::from(1), false), (SAtom::from(2), true)],
+        vec![(SAtom::from(2), false)],
     ]);
     assert!(!phi.is_sat());
 }
@@ -250,10 +245,10 @@ fn dpll_unsat_up_contradiction() {
 #[cfg(test)]
 fn dpll_sat_3v_3c() {
     // (1∨2) ∧ (¬1∨2) ∧ (¬2∨3)
-    let phi = FormulaConjunctiveBasic::<u32>::new([
-        vec![(1u32, true), (2u32, true)],
-        vec![(1u32, false), (2u32, true)],
-        vec![(2u32, false), (3u32, true)],
+    let phi = FormulaConjunctiveBasic::new([
+        vec![(SAtom::from(1), true), (SAtom::from(2), true)],
+        vec![(SAtom::from(1), false), (SAtom::from(2), true)],
+        vec![(SAtom::from(2), false), (SAtom::from(3), true)],
     ]);
     assert!(phi.is_sat());
 }
@@ -263,7 +258,7 @@ fn dpll_sat_3v_3c() {
 fn dpll_sat_empty_formula() {
     // an empty formula is always true as its an empty conjunction
     // therefore SAT
-    let phi = FormulaConjunctiveBasic::<u32>::new(Vec::<Vec<(u32, bool)>>::new());
+    let phi = FormulaConjunctiveBasic::new(Vec::<Vec<(SAtom, bool)>>::new());
     assert!(phi.is_sat());
 }
 
@@ -272,7 +267,7 @@ fn dpll_sat_empty_formula() {
 fn dpll_unsat_empty_clause() {
     // an empty clauses is always false as its an empty disjunction
     // therefore UNSAT
-    let phi = FormulaConjunctiveBasic::<u32>::new([Vec::<(u32, bool)>::new()]);
+    let phi = FormulaConjunctiveBasic::new([Vec::<(SAtom, bool)>::new()]);
     assert!(!phi.is_sat());
 }
 
@@ -280,10 +275,10 @@ fn dpll_unsat_empty_clause() {
 #[cfg(test)]
 fn dpll_unsat_3v_3c() {
     // (1) ∧ (¬1) ∧ (2∨3)
-    let phi = FormulaConjunctiveBasic::<u32>::new([
-        vec![(1u32, true)],
-        vec![(1u32, false)],
-        vec![(2u32, true), (3u32, true)],
+    let phi = FormulaConjunctiveBasic::new([
+        vec![(SAtom::from(1), true)],
+        vec![(SAtom::from(1), false)],
+        vec![(SAtom::from(2), true), (SAtom::from(3), true)],
     ]);
     assert!(!phi.is_sat());
 }

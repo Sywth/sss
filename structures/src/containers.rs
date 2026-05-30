@@ -1,26 +1,20 @@
-use num_traits::{PrimInt, ToPrimitive, Unsigned};
 use std::{
     fmt::{Debug, Display},
-    hash::Hash,
     iter::{self},
-    str::FromStr,
     vec,
 };
 
-// Pure backend. We care mainly about performance, software design is not important here.
-pub trait SwUint: PrimInt + Unsigned + Hash + FromStr + Debug + Display + ToPrimitive {}
-impl<T> SwUint for T where T: PrimInt + Unsigned + Hash + FromStr + Debug + Display + ToPrimitive {}
+use crate::primitives::{SAtom, SAtomType};
 
 #[inline]
-pub fn get_idx_from_atom<T: SwUint>(atom: T) -> usize {
-    (T::sub(atom, T::one()))
-        .to_usize()
-        .expect("given atom could not be cast to usize, was it 0?")
+pub fn get_idx_from_atom(atom: SAtom) -> usize {
+    debug_assert!(atom > SAtom::ZERO, "atom must be non-zero");
+    usize::from(atom) - 1
 }
 
 #[inline]
-pub fn get_atom_from_idx<T: SwUint>(idx: usize) -> T {
-    T::from(idx + 1).expect("given idx could not be cast to an atom")
+pub fn get_atom_from_idx(idx: usize) -> SAtom {
+    SAtom::from((idx + 1) as SAtomType)
 }
 
 // OPTIMIZE: consider using SSO here?
@@ -33,12 +27,12 @@ const SYMBOL_R_PAREN: &str = ")";
 // -------------------------------
 // Assignment
 // -------------------------------
-pub trait Assignment<T: SwUint>: Clone + Debug + IntoIterator<Item = Option<bool>> {
+pub trait Assignment: Clone + Debug + IntoIterator<Item = Option<bool>> {
     fn new(size: usize) -> Self;
-    fn get(&self, atom: T) -> Option<bool>;
-    fn is_set(&self, atom: T) -> bool;
-    fn set(&mut self, atom: T, value: bool);
-    fn clear(&mut self, atom: T);
+    fn get(&self, atom: SAtom) -> Option<bool>;
+    fn is_set(&self, atom: SAtom) -> bool;
+    fn set(&mut self, atom: SAtom, value: bool);
+    fn clear(&mut self, atom: SAtom);
     fn as_formatted_str(&self) -> String;
     fn get_num_atoms(&self) -> usize;
 }
@@ -48,14 +42,14 @@ pub struct AssignmentBasic {
     gamma: Vec<Option<bool>>,
 }
 
-impl<T: SwUint> Assignment<T> for AssignmentBasic {
+impl Assignment for AssignmentBasic {
     fn new(size: usize) -> Self {
         AssignmentBasic {
             gamma: vec![None; size],
         }
     }
 
-    fn get(&self, atom: T) -> Option<bool> {
+    fn get(&self, atom: SAtom) -> Option<bool> {
         let idx = get_idx_from_atom(atom);
         *self
             .gamma
@@ -63,7 +57,7 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
             .expect("bad logic, gamma should have a slot for every atom")
     }
 
-    fn is_set(&self, atom: T) -> bool {
+    fn is_set(&self, atom: SAtom) -> bool {
         let idx = get_idx_from_atom(atom);
         let Some(Some(_)) = self.gamma.get(idx) else {
             return false;
@@ -72,12 +66,12 @@ impl<T: SwUint> Assignment<T> for AssignmentBasic {
         true
     }
 
-    fn set(&mut self, atom: T, truthiness: bool) {
+    fn set(&mut self, atom: SAtom, truthiness: bool) {
         let idx = get_idx_from_atom(atom);
         self.gamma[idx] = Some(truthiness);
     }
 
-    fn clear(&mut self, atom: T) {
+    fn clear(&mut self, atom: SAtom) {
         let idx = get_idx_from_atom(atom);
         self.gamma[idx] = None;
     }
@@ -109,7 +103,7 @@ impl Display for AssignmentBasic {
                     format!(
                         "{}{}",
                         if t { "" } else { SYMBOL_NEG },
-                        get_atom_from_idx::<usize>(i)
+                        get_atom_from_idx(i)
                     )
                 })
             })
@@ -132,55 +126,53 @@ impl IntoIterator for AssignmentBasic {
 // -------------------------------
 // Clause
 // -------------------------------
-pub trait ClauseDisjunctive<T: SwUint>:
-    IntoIterator<Item = (T, bool)> + FromIterator<(T, bool)> + Debug
+pub trait ClauseDisjunctive:
+    IntoIterator<Item = (SAtom, bool)> + FromIterator<(SAtom, bool)> + Debug
 {
-    fn iter(&self) -> impl Iterator<Item = (T, bool)>;
+    fn iter_copied(&self) -> impl Iterator<Item = (SAtom, bool)>;
 }
 
 #[derive(Clone, Debug)]
-pub struct ClauseDisjunctiveBasic<T: SwUint> {
+pub struct ClauseDisjunctiveBasic {
     // Raw propositional atoms
-    atoms: Vec<T>,
+    atoms: Vec<SAtom>,
     // Truth value required by the atom for for this clause to be satisfied
     truthiness: Vec<bool>,
 }
 
-impl<T: SwUint> ClauseDisjunctiveBasic<T> {
-    pub fn new(atoms: Vec<T>, truthiness: Vec<bool>) -> Self {
+impl ClauseDisjunctiveBasic {
+    pub fn new(atoms: Vec<SAtom>, truthiness: Vec<bool>) -> Self {
         debug_assert_eq!(atoms.len(), truthiness.len());
         Self { atoms, truthiness }
     }
 }
 
-impl<T: SwUint> ClauseDisjunctive<T> for ClauseDisjunctiveBasic<T> {
-    fn iter(&self) -> impl Iterator<Item = (T, bool)> {
-        // TODO: OPTIMIZE: This is not how iter should be implemented right?
-        // iter should be reference based no?
+impl ClauseDisjunctive for ClauseDisjunctiveBasic {
+    fn iter_copied(&self) -> impl Iterator<Item = (SAtom, bool)> {
         self.atoms
             .iter()
-            .copied()
+            .cloned()
             .zip(self.truthiness.iter().copied())
     }
 }
 
-impl<T: SwUint> IntoIterator for ClauseDisjunctiveBasic<T> {
-    type Item = (T, bool);
-    type IntoIter = iter::Zip<vec::IntoIter<T>, vec::IntoIter<bool>>;
+impl IntoIterator for ClauseDisjunctiveBasic {
+    type Item = (SAtom, bool);
+    type IntoIter = iter::Zip<vec::IntoIter<SAtom>, vec::IntoIter<bool>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.atoms.into_iter().zip(self.truthiness)
     }
 }
 
-impl<T: SwUint> FromIterator<(T, bool)> for ClauseDisjunctiveBasic<T> {
-    fn from_iter<I: IntoIterator<Item = (T, bool)>>(it: I) -> Self {
+impl FromIterator<(SAtom, bool)> for ClauseDisjunctiveBasic {
+    fn from_iter<I: IntoIterator<Item = (SAtom, bool)>>(it: I) -> Self {
         let (atoms, truthiness) = it.into_iter().unzip();
         Self::new(atoms, truthiness)
     }
 }
 
-impl<T: SwUint> Display for ClauseDisjunctiveBasic<T> {
+impl Display for ClauseDisjunctiveBasic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let dbg_str = self
             .atoms
@@ -200,51 +192,50 @@ impl<T: SwUint> Display for ClauseDisjunctiveBasic<T> {
 // -------------------------------
 // Formula
 // -------------------------------
-pub trait FormulaConjunctive<T: SwUint>:
+pub trait FormulaConjunctive:
     IntoIterator<Item = Self::Clause> + FromIterator<Self::Clause> + Debug
 {
-    type Clause: ClauseDisjunctive<T>;
-    // TODO: OPTIMIZE: Add lifetime later so we can return a reference
-    fn iter(&self) -> impl Iterator<Item = Self::Clause>;
+    type Clause: ClauseDisjunctive;
+    fn iter(&self) -> impl Iterator<Item = &Self::Clause>;
 }
 
 #[derive(Clone, Debug)]
-pub struct FormulaConjunctiveBasic<T: SwUint> {
-    clauses: Vec<ClauseDisjunctiveBasic<T>>,
+pub struct FormulaConjunctiveBasic {
+    clauses: Vec<ClauseDisjunctiveBasic>,
 }
 
-impl<T: SwUint> FormulaConjunctiveBasic<T> {
-    pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = (T, bool)>>(it: I) -> Self {
+impl FormulaConjunctiveBasic {
+    pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = (SAtom, bool)>>(it: I) -> Self {
         it.into_iter().map(|c| c.into_iter().collect()).collect()
     }
 }
 
-impl<T: SwUint> FormulaConjunctive<T> for FormulaConjunctiveBasic<T> {
-    type Clause = ClauseDisjunctiveBasic<T>;
+impl FormulaConjunctive for FormulaConjunctiveBasic {
+    type Clause = ClauseDisjunctiveBasic;
 
-    fn iter(&self) -> impl Iterator<Item = Self::Clause> {
-        self.clauses.iter().cloned()
+    fn iter(&self) -> impl Iterator<Item = &Self::Clause> {
+        self.clauses.iter()
     }
 }
 
-impl<T: SwUint> IntoIterator for FormulaConjunctiveBasic<T> {
-    type Item = ClauseDisjunctiveBasic<T>;
-    type IntoIter = vec::IntoIter<ClauseDisjunctiveBasic<T>>;
+impl IntoIterator for FormulaConjunctiveBasic {
+    type Item = ClauseDisjunctiveBasic;
+    type IntoIter = vec::IntoIter<ClauseDisjunctiveBasic>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.clauses.into_iter()
     }
 }
 
-impl<T: SwUint> FromIterator<ClauseDisjunctiveBasic<T>> for FormulaConjunctiveBasic<T> {
-    fn from_iter<I: IntoIterator<Item = ClauseDisjunctiveBasic<T>>>(it: I) -> Self {
+impl FromIterator<ClauseDisjunctiveBasic> for FormulaConjunctiveBasic {
+    fn from_iter<I: IntoIterator<Item = ClauseDisjunctiveBasic>>(it: I) -> Self {
         Self {
             clauses: it.into_iter().collect(),
         }
     }
 }
 
-impl<T: SwUint> Display for FormulaConjunctiveBasic<T> {
+impl Display for FormulaConjunctiveBasic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let dbg_str = self
             .clauses
@@ -264,13 +255,13 @@ impl<T: SwUint> Display for FormulaConjunctiveBasic<T> {
 #[test]
 #[cfg(test)]
 fn assignment_set_get_clear() {
-    let mut gamma = <AssignmentBasic as Assignment<u32>>::new(3);
-    assert_eq!(gamma.get(1u32), None);
-    assert!(!gamma.is_set(1u32));
-    gamma.set(1u32, true);
-    assert_eq!(gamma.get(1u32), Some(true));
-    assert!(gamma.is_set(1u32));
-    gamma.clear(1u32);
-    assert_eq!(gamma.get(1u32), None);
-    assert!(!gamma.is_set(1u32));
+    let mut gamma = AssignmentBasic::new(3);
+    assert_eq!(gamma.get(SAtom::from(1)), None);
+    assert!(!gamma.is_set(SAtom::from(1)));
+    gamma.set(SAtom::from(1), true);
+    assert_eq!(gamma.get(SAtom::from(1)), Some(true));
+    assert!(gamma.is_set(SAtom::from(1)));
+    gamma.clear(SAtom::from(1));
+    assert_eq!(gamma.get(SAtom::from(1)), None);
+    assert!(!gamma.is_set(SAtom::from(1)));
 }

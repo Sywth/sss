@@ -3,37 +3,38 @@ use std::path::Path;
 use std::{collections::hash_map, fs::File};
 use tracing::{debug, error};
 
-use crate::{structures::FormulaConjunctiveBasic, structures::SwUint};
-use num_traits::{PrimInt, Signed, ToPrimitive};
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-    hash::Hash,
-    str::FromStr,
-};
+use std::collections::HashMap;
+use structures::containers::FormulaConjunctiveBasic;
+use structures::primitives::{FLiteral, SAtom};
 
-// Pure front end here. Only goal is get data into shape for backend. Performance cost is not
-// important here
-pub trait SwInt: PrimInt + Signed + Hash + FromStr + Display + Debug + ToPrimitive {}
-impl<T> SwInt for T where T: PrimInt + Signed + Hash + FromStr + Display + Debug + ToPrimitive {}
+//pub enum Formula<VarType, FomrulaIdType> {
+//    Top,
+//    Bot,
+//
+//    Con(FomrulaIdType, FomrulaIdType),
+//    Dis(FomrulaIdType, FomrulaIdType),
+//
+//    Imp(FomrulaIdType, FomrulaIdType),
+//
+//    ForAll(VarType, FomrulaIdType),
+//    Exists(VarType, FomrulaIdType),
+//}
 
 #[derive(Debug)]
-pub struct FormulaTranslator<K: SwInt, V: SwUint> {
-    pub dimacs_id_to_sw_id: HashMap<K, V>,
-    pub cnf: FormulaConjunctiveBasic<V>,
+pub struct FormulaTranslator {
+    pub dimacs_id_to_sw_id: HashMap<FLiteral, SAtom>,
+    pub cnf: FormulaConjunctiveBasic,
 }
 
-/// K is the front end id type (e.g. i32)
-/// V is the solver's type for atoms probably (e.g. u32)
-impl<K: SwInt, V: SwUint> FormulaTranslator<K, V> {
+impl FormulaTranslator {
     /// Given some 2D iterator e.g. [[526,334], [-334,3,74]]  we should be able
     /// spit back a normalized formula like so
     /// [[1,2], [-2, 3, 4]], {526: 1, 334: 2, 3: 3, 74: 4}
-    pub fn new<I: IntoIterator<Item = J> + Clone, J: IntoIterator<Item = K>>(
+    pub fn new<I: IntoIterator<Item = J> + Clone, J: IntoIterator<Item = FLiteral>>(
         clause_iterator: I,
     ) -> Self {
-        let mut dimacs_id_to_sw_id: HashMap<K, V> = HashMap::new();
-        let mut curr_sw_id = V::one();
+        let mut dimacs_id_to_sw_id: HashMap<FLiteral, SAtom> = HashMap::new();
+        let mut curr_sw_id = SAtom::ONE;
 
         for disjunction in clause_iterator.clone().into_iter() {
             for k_litearl in disjunction.into_iter() {
@@ -41,25 +42,21 @@ impl<K: SwInt, V: SwUint> FormulaTranslator<K, V> {
 
                 if let hash_map::Entry::Vacant(e) = dimacs_id_to_sw_id.entry(k_atom) {
                     e.insert(curr_sw_id);
-                    curr_sw_id = curr_sw_id.add(V::one());
+                    curr_sw_id = curr_sw_id + SAtom::ONE;
                 }
             }
         }
 
-        let mut clauses: Vec<Vec<(V, bool)>> = Vec::new();
+        let mut clauses: Vec<Vec<(SAtom, bool)>> = Vec::new();
         for disjunction in clause_iterator.into_iter() {
-            let mut litearls: Vec<(V, bool)> = Vec::new();
+            let mut litearls: Vec<(SAtom, bool)> = Vec::new();
             for k_litearl in disjunction.into_iter() {
                 let k_atom = k_litearl.abs();
                 let v_atom = *dimacs_id_to_sw_id.get(&k_atom).expect("bad logic");
 
-                let polarity: bool = match k_litearl
-                    .signum()
-                    .to_i8()
-                    .expect("could not parse output from signum to i8")
-                {
-                    1 => true,
-                    -1 => false,
+                let polarity = match k_litearl {
+                    n if n > FLiteral::ZERO => true,
+                    n if n < FLiteral::ZERO => false,
                     _ => panic!("malformed formula, found literal with value 0"),
                 };
                 litearls.push((v_atom, polarity));
@@ -75,14 +72,12 @@ impl<K: SwInt, V: SwUint> FormulaTranslator<K, V> {
     }
 }
 
-pub fn parse_dimacs_file<T: SwInt, P: AsRef<Path>>(
-    fp: P,
-) -> Result<FormulaTranslator<T, u32>, std::io::Error> {
+pub fn parse_dimacs_file<P: AsRef<Path>>(fp: P) -> Result<FormulaTranslator, std::io::Error> {
     let file = File::open(fp)?;
     let reader = std::io::BufReader::new(file);
 
-    let mut disjunction_stack: Vec<T> = Vec::new();
-    let mut conjunctions: Vec<Vec<T>> = Vec::new();
+    let mut disjunction_stack: Vec<FLiteral> = Vec::new();
+    let mut conjunctions: Vec<Vec<FLiteral>> = Vec::new();
 
     for line in reader.lines() {
         let line = line?;
@@ -104,12 +99,12 @@ pub fn parse_dimacs_file<T: SwInt, P: AsRef<Path>>(
         }
 
         for token in it {
-            match token.parse::<T>() {
-                // value is int+
-                Ok(value) if value != T::zero() => {
+            match token.parse::<FLiteral>() {
+                // value is positive natural
+                Ok(value) if value != FLiteral::ZERO => {
                     disjunction_stack.push(value);
                 }
-                // value == 0
+                // value is 0
                 Ok(_) => {
                     // OPTIMIZATION: You can replace this with a mem take?
                     conjunctions.push(disjunction_stack.clone());
@@ -132,13 +127,18 @@ pub fn parse_dimacs_file<T: SwInt, P: AsRef<Path>>(
 
 #[test]
 #[cfg(test)]
-#[allow(double_negations)]
 fn translator_normalizes_polarity() {
-    let formula = FormulaTranslator::<i32, u32>::new(vec![vec![--5i32, -322i32], vec![17i32]]);
-    let sw_1 = *formula.dimacs_id_to_sw_id.get(&5).unwrap();
-    let sw_2 = *formula.dimacs_id_to_sw_id.get(&322).unwrap();
-    let sw_3 = *formula.dimacs_id_to_sw_id.get(&17).unwrap();
-    let clauses: Vec<Vec<(u32, bool)>> = formula
+    let formula = FormulaTranslator::new(vec![
+        vec![FLiteral::from(5), FLiteral::from(-322)],
+        vec![FLiteral::from(17)],
+    ]);
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&FLiteral::from(5)).unwrap();
+    let sw_2 = *formula
+        .dimacs_id_to_sw_id
+        .get(&FLiteral::from(322))
+        .unwrap();
+    let sw_3 = *formula.dimacs_id_to_sw_id.get(&FLiteral::from(17)).unwrap();
+    let clauses: Vec<Vec<(SAtom, bool)>> = formula
         .cnf
         .clone()
         .into_iter()
@@ -153,17 +153,20 @@ fn translator_normalizes_polarity() {
 fn translator_polarity_unsat() {
     use crate::sat::SatFormula;
     // (1) ∧ (¬1) is unsat, basic polarity test
-    let formula = FormulaTranslator::<i32, u32>::new(vec![vec![1i32], vec![-1i32]]);
+    let formula = FormulaTranslator::new(vec![vec![FLiteral::from(1)], vec![FLiteral::from(-1)]]);
     assert!(!formula.cnf.is_sat());
 }
 
 #[test]
 #[cfg(test)]
 fn translator_large_id_normalized() {
-    let formula = FormulaTranslator::<i32, u32>::new(vec![vec![242i32, -1i32]]);
-    let sw_242 = *formula.dimacs_id_to_sw_id.get(&242).unwrap();
-    let sw_1 = *formula.dimacs_id_to_sw_id.get(&1).unwrap();
-    let clauses: Vec<Vec<(u32, bool)>> = formula
+    let formula = FormulaTranslator::new(vec![vec![FLiteral::from(242), FLiteral::from(-1)]]);
+    let sw_242 = *formula
+        .dimacs_id_to_sw_id
+        .get(&FLiteral::from(242))
+        .unwrap();
+    let sw_1 = *formula.dimacs_id_to_sw_id.get(&FLiteral::from(1)).unwrap();
+    let clauses: Vec<Vec<(SAtom, bool)>> = formula
         .cnf
         .clone()
         .into_iter()
@@ -175,7 +178,7 @@ fn translator_large_id_normalized() {
 #[test]
 #[cfg(test)]
 fn translator_0v_0c_no_clauses() {
-    let formula = FormulaTranslator::<i32, u32>::new(Vec::<Vec<i32>>::new());
+    let formula = FormulaTranslator::new(Vec::<Vec<FLiteral>>::new());
     assert_eq!(formula.cnf.into_iter().count(), 0);
     assert!(formula.dimacs_id_to_sw_id.is_empty());
 }
@@ -183,8 +186,8 @@ fn translator_0v_0c_no_clauses() {
 #[test]
 #[cfg(test)]
 fn translator_0v_1c_empty_clause() {
-    let formula = FormulaTranslator::<i32, u32>::new(vec![Vec::<i32>::new()]);
-    let clauses: Vec<Vec<(u32, bool)>> = formula
+    let formula = FormulaTranslator::new(vec![Vec::<FLiteral>::new()]);
+    let clauses: Vec<Vec<(SAtom, bool)>> = formula
         .cnf
         .into_iter()
         .map(|c| c.into_iter().collect())
