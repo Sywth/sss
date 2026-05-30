@@ -1,5 +1,26 @@
 use std::{fmt::Display, ops::Add};
 
+// -------------------------------
+// Formula Semantics
+// -------------------------------
+
+// Should be powerful enough for all of first order logic
+pub enum Formula<VarType, FomrulaIdType> {
+    Top,
+    Bot,
+
+    Con(FomrulaIdType, FomrulaIdType),
+    Dis(FomrulaIdType, FomrulaIdType),
+
+    Imp(FomrulaIdType, FomrulaIdType),
+
+    ForAll(VarType, FomrulaIdType),
+    Exists(VarType, FomrulaIdType),
+}
+
+// -------------------------------
+// Solver Back End Types
+// -------------------------------
 pub type SAtomType = u32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -39,8 +60,10 @@ impl Add for SAtom {
         SAtom(self.value() + rhs.value())
     }
 }
-// Zero Cost Abstraction, just change if we ever need more
-// f for front-end literal and s for solver atom
+
+// -------------------------------
+// Front End Parser Types
+// -------------------------------
 pub type FLiteralType = i32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

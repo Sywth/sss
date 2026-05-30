@@ -7,19 +7,6 @@ use std::collections::HashMap;
 use structures::containers::FormulaConjunctiveBasic;
 use structures::primitives::{FLiteral, SAtom};
 
-//pub enum Formula<VarType, FomrulaIdType> {
-//    Top,
-//    Bot,
-//
-//    Con(FomrulaIdType, FomrulaIdType),
-//    Dis(FomrulaIdType, FomrulaIdType),
-//
-//    Imp(FomrulaIdType, FomrulaIdType),
-//
-//    ForAll(VarType, FomrulaIdType),
-//    Exists(VarType, FomrulaIdType),
-//}
-
 #[derive(Debug)]
 pub struct FormulaTranslator {
     pub dimacs_id_to_sw_id: HashMap<FLiteral, SAtom>,
@@ -121,6 +108,54 @@ pub fn parse_dimacs_file<P: AsRef<Path>>(fp: P) -> Result<FormulaTranslator, std
     Ok(FormulaTranslator::new(conjunctions))
 }
 
+pub fn parse_qdimacs_file<P: AsRef<Path>>(fp: P) -> Result<FormulaTranslator, std::io::Error> {
+    let file = File::open(fp)?;
+    let reader = std::io::BufReader::new(file);
+
+    let mut disjunction_stack: Vec<FLiteral> = Vec::new();
+    let mut conjunctions: Vec<Vec<FLiteral>> = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        let mut it = line.split_whitespace().peekable();
+
+        match it.peek() {
+            Some(&"c") => {
+                debug!(comment = %line);
+                continue;
+            }
+            Some(&"p") => {
+                debug!(header = %line);
+                continue;
+            }
+            None => {
+                debug!("skipping empty line");
+            }
+            _ => (),
+        }
+
+        for token in it {
+            match token.parse::<FLiteral>() {
+                // value is positive natural
+                Ok(value) if value != FLiteral::ZERO => {
+                    disjunction_stack.push(value);
+                }
+                // value is 0
+                Ok(_) => {
+                    // OPTIMIZATION: You can replace this with a mem take?
+                    conjunctions.push(disjunction_stack.clone());
+                    disjunction_stack.clear();
+                }
+                // value cannot be parsed
+                Err(_) => {
+                    error!(token = token, "failed to parse token");
+                }
+            }
+        }
+    }
+
+    Ok(FormulaTranslator::new(conjunctions))
+}
 // --------------------------------
 // Unit Tests
 // --------------------------------
