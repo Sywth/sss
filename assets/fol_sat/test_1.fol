@@ -7,8 +7,9 @@
 ;;  constitute a graph where there is a node, x, that 
 ;;  is connected to all other nodes, y, (including itself)
 
-(exists x1
+(exists (x1)          
   (implies (P x1)
-    (forall x2
+    (forall (x2)      
       (or (not (P x2))
           (and (P x2) (R x1 x2))))))
+

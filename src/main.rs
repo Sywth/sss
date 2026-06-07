@@ -1,12 +1,21 @@
-use sss::{parse_dimacs_file, FormulaTranslator, SatFormula};
-use std::path::Path;
+use clap::Parser;
+use sss::{
+    args::{Cli, SolverAction, SolverExitType},
+    solver, CliError,
+};
 use std::process::ExitCode;
-use tracing::{debug, error, Level};
+use tracing::Level;
 
-// More of the front end
-const STR_ERROR: &str = "ERR";
-const STR_SAT: &str = "SAT";
-const STR_UNSAT: &str = "UNSAT";
+fn run(cli: Cli) -> Result<SolverExitType, CliError> {
+    // TODO
+    // This needs to be nested I think, also how do we handle
+    // other stuff like --max-timeout?
+    match cli.solver_action {
+        SolverAction::Sat { file: fp } => Ok(solver::sat(fp)),
+        SolverAction::Normalize { file: fp } => Ok(solver::normalize(fp)),
+        SolverAction::Cast { file: fp } => Ok(solver::cast(fp)),
+    }
+}
 
 fn main() -> ExitCode {
     tracing_subscriber::fmt()
@@ -14,38 +23,12 @@ fn main() -> ExitCode {
         .with_ansi(true)
         .init();
 
-    let mut args = std::env::args();
-    let this_script = args.next().unwrap_or_else(|| "main".into());
-    let dimacs_path = match args.next() {
-        Some(p) => p,
-        None => {
-            eprintln!("Usage: {this_script} <dimacs_file>");
-            println!("{}", STR_ERROR);
-            return ExitCode::from(1);
+    let cli = Cli::parse();
+    match run(cli) {
+        Ok(solver_exit) => solver_exit.into(),
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::from(1)
         }
-    };
-
-    let fp_dimacs = Path::new(&dimacs_path);
-
-    let formula: FormulaTranslator = match parse_dimacs_file(fp_dimacs) {
-        Ok(f) => f,
-        Err(e) => {
-            error!(path = ?fp_dimacs, error = ?e,);
-            println!("{}", STR_ERROR);
-            return ExitCode::from(1);
-        }
-    };
-
-    debug!("parsed formula as {:#?}", formula);
-    let result = match formula.is_sat() {
-        true => STR_SAT,
-        false => STR_UNSAT,
-    };
-    println!("{}", result);
-
-    ExitCode::from(0)
+    }
 }
-
-// --------------------------------
-// Unit Tests
-// --------------------------------

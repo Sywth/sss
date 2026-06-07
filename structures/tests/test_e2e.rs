@@ -1,7 +1,7 @@
-use structures::primitives::SAtom;
+use structures::primitives::Atom;
 
 #[test]
 fn assert_trivial() {
-    let s = SAtom::from(0);
+    let s = Atom::from(0);
     assert!(s < 1.into());
 }

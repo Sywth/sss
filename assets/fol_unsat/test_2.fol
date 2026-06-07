@@ -3,5 +3,5 @@
 ;;  We can't both have every thing in the domain hold and have 
 ;;  something in the domain that doesn't hold
 
-(and (forall x (P x))
-     (exists x (not (P x))))
+(and (forall (x) (P x))
+     (exists (x) (not (P x))))

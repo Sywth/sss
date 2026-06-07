@@ -21,84 +21,62 @@ pub enum Formula<VarType, FomrulaIdType> {
 // -------------------------------
 // Solver Back End Types
 // -------------------------------
-pub type SAtomType = u32;
+pub type AtomType = u32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SAtom(SAtomType);
+pub struct Atom(AtomType);
 
-impl SAtom {
-    pub const ZERO: SAtom = SAtom(0);
-    pub const ONE: SAtom = SAtom(1);
-    pub const MAX: SAtom = SAtom(SAtomType::MAX);
+impl Atom {
+    pub const ZERO: Atom = Atom(0);
+    pub const ONE: Atom = Atom(1);
+    pub const MAX: Atom = Atom(AtomType::MAX);
 
-    fn value(self) -> SAtomType {
+    fn value(self) -> AtomType {
         self.0
     }
 }
 
-impl From<SAtomType> for SAtom {
-    fn from(v: SAtomType) -> Self {
-        SAtom(v)
+impl From<AtomType> for Atom {
+    fn from(v: AtomType) -> Self {
+        Atom(v)
     }
 }
 
-impl From<SAtom> for usize {
-    fn from(a: SAtom) -> usize {
+impl From<Atom> for usize {
+    fn from(a: Atom) -> usize {
         a.value() as usize
     }
 }
 
-impl Display for SAtom {
+impl Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value())
     }
 }
 
-impl Add for SAtom {
-    type Output = SAtom;
-    fn add(self, rhs: SAtom) -> SAtom {
-        SAtom(self.value() + rhs.value())
+impl Add for Atom {
+    type Output = Atom;
+    fn add(self, rhs: Atom) -> Atom {
+        Atom(self.value() + rhs.value())
     }
 }
 
 // -------------------------------
 // Front End Parser Types
 // -------------------------------
-pub type FLiteralType = i32;
+pub type SymbolType = [u8; 16];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FLiteral(FLiteralType);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Symbol(SymbolType);
 
-impl FLiteral {
-    pub const ZERO: FLiteral = FLiteral(0);
-    pub const ONE: FLiteral = FLiteral(1);
-    pub const MAX: FLiteral = FLiteral(FLiteralType::MAX);
-
-    fn value(self) -> FLiteralType {
+impl Symbol {
+    fn value(self) -> SymbolType {
         self.0
     }
-
-    pub fn abs(self) -> FLiteral {
-        FLiteral(self.value().abs())
-    }
 }
 
-impl From<FLiteralType> for FLiteral {
-    fn from(v: FLiteralType) -> Self {
-        FLiteral(v)
-    }
-}
-
-impl std::str::FromStr for FLiteral {
-    type Err = <FLiteralType as std::str::FromStr>::Err;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse::<FLiteralType>().map(FLiteral::from)
-    }
-}
-
-impl Add for FLiteral {
-    type Output = FLiteral;
-    fn add(self, rhs: FLiteral) -> FLiteral {
-        FLiteral(self.value() + rhs.value())
+impl From<SymbolType> for Symbol {
+    fn from(v: SymbolType) -> Self {
+        Symbol(v)
     }
 }

@@ -4,35 +4,47 @@ use std::{
     vec,
 };
 
-use crate::primitives::{SAtom, SAtomType};
+use crate::primitives::{Atom, AtomType};
 
 #[inline]
-pub fn get_idx_from_atom(atom: SAtom) -> usize {
-    debug_assert!(atom > SAtom::ZERO, "atom must be non-zero");
+pub fn get_idx_from_atom(atom: Atom) -> usize {
+    debug_assert!(atom > Atom::ZERO, "atom must be non-zero");
     usize::from(atom) - 1
 }
 
 #[inline]
-pub fn get_atom_from_idx(idx: usize) -> SAtom {
-    SAtom::from((idx + 1) as SAtomType)
+pub fn get_atom_from_idx(idx: usize) -> Atom {
+    Atom::from((idx + 1) as AtomType)
 }
 
 // OPTIMIZE: consider using SSO here?
-const SYMBOL_NEG: &str = "\u{00AC}";
-const SYMBOL_CONJ: &str = "\u{2227}";
-const SYMBOL_DISJ: &str = "\u{2228}";
-const SYMBOL_L_PAREN: &str = "(";
-const SYMBOL_R_PAREN: &str = ")";
+pub mod symbols {
+    pub mod debug {
+        pub const NEG: &str = "\u{00AC}";
+        pub const CONJ: &str = "\u{2227}";
+        pub const DISJ: &str = "\u{2228}";
+        pub const L_PAREN: &str = "(";
+        pub const R_PAREN: &str = ")";
+    }
+    pub mod parser {
+        pub const NEG: &str = "not";
+        pub const CONJ: &str = "and";
+        pub const DISJ: &str = "or";
+        pub const EQ: &str = "equal";
+        pub const IMPL: &str = "implies";
+        pub const IFF: &str = "iff";
+    }
+}
 
 // -------------------------------
 // Assignment
 // -------------------------------
 pub trait Assignment: Clone + Debug + IntoIterator<Item = Option<bool>> {
     fn new(size: usize) -> Self;
-    fn get(&self, atom: SAtom) -> Option<bool>;
-    fn is_set(&self, atom: SAtom) -> bool;
-    fn set(&mut self, atom: SAtom, value: bool);
-    fn clear(&mut self, atom: SAtom);
+    fn get(&self, atom: Atom) -> Option<bool>;
+    fn is_set(&self, atom: Atom) -> bool;
+    fn set(&mut self, atom: Atom, value: bool);
+    fn clear(&mut self, atom: Atom);
     fn as_formatted_str(&self) -> String;
     fn get_num_atoms(&self) -> usize;
 }
@@ -49,7 +61,7 @@ impl Assignment for AssignmentBasic {
         }
     }
 
-    fn get(&self, atom: SAtom) -> Option<bool> {
+    fn get(&self, atom: Atom) -> Option<bool> {
         let idx = get_idx_from_atom(atom);
         *self
             .gamma
@@ -57,7 +69,7 @@ impl Assignment for AssignmentBasic {
             .expect("bad logic, gamma should have a slot for every atom")
     }
 
-    fn is_set(&self, atom: SAtom) -> bool {
+    fn is_set(&self, atom: Atom) -> bool {
         let idx = get_idx_from_atom(atom);
         let Some(Some(_)) = self.gamma.get(idx) else {
             return false;
@@ -66,12 +78,12 @@ impl Assignment for AssignmentBasic {
         true
     }
 
-    fn set(&mut self, atom: SAtom, truthiness: bool) {
+    fn set(&mut self, atom: Atom, truthiness: bool) {
         let idx = get_idx_from_atom(atom);
         self.gamma[idx] = Some(truthiness);
     }
 
-    fn clear(&mut self, atom: SAtom) {
+    fn clear(&mut self, atom: Atom) {
         let idx = get_idx_from_atom(atom);
         self.gamma[idx] = None;
     }
@@ -102,7 +114,7 @@ impl Display for AssignmentBasic {
                 t_opt.map(|t| {
                     format!(
                         "{}{}",
-                        if t { "" } else { SYMBOL_NEG },
+                        if t { "" } else { symbols::debug::NEG },
                         get_atom_from_idx(i)
                     )
                 })
@@ -127,28 +139,28 @@ impl IntoIterator for AssignmentBasic {
 // Clause
 // -------------------------------
 pub trait ClauseDisjunctive:
-    IntoIterator<Item = (SAtom, bool)> + FromIterator<(SAtom, bool)> + Debug
+    IntoIterator<Item = (Atom, bool)> + FromIterator<(Atom, bool)> + Debug
 {
-    fn iter_copied(&self) -> impl Iterator<Item = (SAtom, bool)>;
+    fn iter_copied(&self) -> impl Iterator<Item = (Atom, bool)>;
 }
 
 #[derive(Clone, Debug)]
 pub struct ClauseDisjunctiveBasic {
     // Raw propositional atoms
-    atoms: Vec<SAtom>,
+    atoms: Vec<Atom>,
     // Truth value required by the atom for for this clause to be satisfied
     truthiness: Vec<bool>,
 }
 
 impl ClauseDisjunctiveBasic {
-    pub fn new(atoms: Vec<SAtom>, truthiness: Vec<bool>) -> Self {
+    pub fn new(atoms: Vec<Atom>, truthiness: Vec<bool>) -> Self {
         debug_assert_eq!(atoms.len(), truthiness.len());
         Self { atoms, truthiness }
     }
 }
 
 impl ClauseDisjunctive for ClauseDisjunctiveBasic {
-    fn iter_copied(&self) -> impl Iterator<Item = (SAtom, bool)> {
+    fn iter_copied(&self) -> impl Iterator<Item = (Atom, bool)> {
         self.atoms
             .iter()
             .cloned()
@@ -157,16 +169,16 @@ impl ClauseDisjunctive for ClauseDisjunctiveBasic {
 }
 
 impl IntoIterator for ClauseDisjunctiveBasic {
-    type Item = (SAtom, bool);
-    type IntoIter = iter::Zip<vec::IntoIter<SAtom>, vec::IntoIter<bool>>;
+    type Item = (Atom, bool);
+    type IntoIter = iter::Zip<vec::IntoIter<Atom>, vec::IntoIter<bool>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.atoms.into_iter().zip(self.truthiness)
     }
 }
 
-impl FromIterator<(SAtom, bool)> for ClauseDisjunctiveBasic {
-    fn from_iter<I: IntoIterator<Item = (SAtom, bool)>>(it: I) -> Self {
+impl FromIterator<(Atom, bool)> for ClauseDisjunctiveBasic {
+    fn from_iter<I: IntoIterator<Item = (Atom, bool)>>(it: I) -> Self {
         let (atoms, truthiness) = it.into_iter().unzip();
         Self::new(atoms, truthiness)
     }
@@ -180,10 +192,10 @@ impl Display for ClauseDisjunctiveBasic {
             .enumerate()
             .map(|(i, &a)| {
                 let t = self.truthiness[i];
-                format!("{}{}", if t { "" } else { SYMBOL_NEG }, a)
+                format!("{}{}", if t { "" } else { symbols::debug::NEG }, a)
             })
             .collect::<Vec<_>>()
-            .join(SYMBOL_DISJ);
+            .join(symbols::debug::DISJ);
 
         write!(f, "{}", dbg_str)
     }
@@ -205,7 +217,7 @@ pub struct FormulaConjunctiveBasic {
 }
 
 impl FormulaConjunctiveBasic {
-    pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = (SAtom, bool)>>(it: I) -> Self {
+    pub fn new<I: IntoIterator<Item = J>, J: IntoIterator<Item = (Atom, bool)>>(it: I) -> Self {
         it.into_iter().map(|c| c.into_iter().collect()).collect()
     }
 }
@@ -242,7 +254,7 @@ impl Display for FormulaConjunctiveBasic {
             .iter()
             .map(|c| format!("({})", c))
             .collect::<Vec<_>>()
-            .join(SYMBOL_CONJ);
+            .join(symbols::debug::CONJ);
 
         write!(f, "{}", dbg_str)
     }
@@ -256,12 +268,12 @@ impl Display for FormulaConjunctiveBasic {
 #[cfg(test)]
 fn assignment_set_get_clear() {
     let mut gamma = AssignmentBasic::new(3);
-    assert_eq!(gamma.get(SAtom::from(1)), None);
-    assert!(!gamma.is_set(SAtom::from(1)));
-    gamma.set(SAtom::from(1), true);
-    assert_eq!(gamma.get(SAtom::from(1)), Some(true));
-    assert!(gamma.is_set(SAtom::from(1)));
-    gamma.clear(SAtom::from(1));
-    assert_eq!(gamma.get(SAtom::from(1)), None);
-    assert!(!gamma.is_set(SAtom::from(1)));
+    assert_eq!(gamma.get(Atom::from(1)), None);
+    assert!(!gamma.is_set(Atom::from(1)));
+    gamma.set(Atom::from(1), true);
+    assert_eq!(gamma.get(Atom::from(1)), Some(true));
+    assert!(gamma.is_set(Atom::from(1)));
+    gamma.clear(Atom::from(1));
+    assert_eq!(gamma.get(Atom::from(1)), None);
+    assert!(!gamma.is_set(Atom::from(1)));
 }

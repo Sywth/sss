@@ -2,5 +2,5 @@
 
 ;;  We cannot have something hold and not hold
 
-(exists x1
+(exists (x1)
   (and (P x1) (not (P x1))))
