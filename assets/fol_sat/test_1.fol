@@ -1,0 +1,15 @@
+;; E x (P(x) -> A y (~ P(y) \/ (P(y) /\ R(x, y))))
+
+;;  There is some x that is P such that every y 
+;;  that is also P has edge relation relation, R, from x to y
+
+;;  E.g. The model where all the elements of the domain that are P 
+;;  constitute a graph where there is a node, x, that 
+;;  is connected to all other nodes, y, (including itself)
+
+(exists (x1)          
+  (implies (P x1)
+    (forall (x2)      
+      (or (not (P x2))
+          (and (P x2) (R x1 x2))))))
+

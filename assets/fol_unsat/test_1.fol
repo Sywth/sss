@@ -1,0 +1,6 @@
+;; E x1 (P(x1) /\ ~P(x1))
+
+;;  We cannot have something hold and not hold
+
+(exists (x1)
+  (and (P x1) (not (P x1))))
