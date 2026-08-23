@@ -6,4 +6,4 @@
 
 ## Info
 
-Project is WIP, hence no builds yet, also this is a fresh re-write nothing works
+Project is WIP, hence no builds yet, also this is a fresh re-write nothing works.
