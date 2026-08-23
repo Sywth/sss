@@ -1,10 +1,12 @@
-[package]
-name = "sss"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "3"
 
-[dependencies]
-num-traits = "0.2.19"
-rand = "0.10.1"
-tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
+members = [
+   "cli",
+   "logic",
+   "parser",
+   "se-cvp",
+   "se-sat",
+   "se-stcon",
+   "se-tqbf",
+]

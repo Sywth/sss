@@ -1,7 +1,0 @@
-[jobs.test]
-command = ["cargo", "test"]
-need_stdout = true
-
-[jobs.unit]
-command = ["cargo", "test", "--lib", "--no-fail-fast"]
-need_stdout = true
