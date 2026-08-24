@@ -1,16 +1,21 @@
-use std::env;
+#![allow(unused)]
+use std::{env, path};
 use std::{process::ExitCode, str};
 
 const LOG_LEVEL: tracing::Level = tracing::Level::DEBUG;
 
 #[derive(Debug)]
-enum DecisionProblem {
+enum DecisionProblemType {
     Sat,
     Tqbf,
     Stcon,
 }
 
-impl str::FromStr for DecisionProblem {
+//impl DecisionProblemType {
+//    pub fn decide(self, format: DecisionProblemFormat, input: Symbols) {}
+//}
+//
+impl str::FromStr for DecisionProblemType {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -24,31 +29,125 @@ impl str::FromStr for DecisionProblem {
 }
 
 #[derive(Debug)]
+enum DecisionProblemFormat {
+    Sfol,
+    Dimacs,
+}
+
+impl str::FromStr for DecisionProblemFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sfol" => Ok(Self::Sfol),
+            "dimacs" => Ok(Self::Dimacs),
+            _ => Err(format!("unknown format : {s}")),
+        }
+    }
+}
+
+#[derive(Debug)]
 enum SssCommand {
-    Decide(DecisionProblem),
+    Decide {
+        problem_type: DecisionProblemType,
+
+        fp: path::PathBuf,
+    },
+
+    Cast {
+        format_start: DecisionProblemFormat,
+        format_end: DecisionProblemFormat,
+
+        fp: path::PathBuf,
+    },
+}
+
+impl SssCommand {
+    fn execute(self) -> Result<(), String> {
+        match self {
+            SssCommand::Decide { problem_type, fp } => {
+                //problem_type::decide(fp)
+                todo!()
+            }
+            SssCommand::Cast {
+                format_start,
+                format_end,
+                fp,
+            } => {
+                todo!("cast will be implemented after decide")
+            }
+        }
+    }
 }
 
 fn parse_args(
     mut args: impl Iterator<Item = String>,
 ) -> Result<SssCommand, String> {
     let Some(command) = args.next() else {
-        return Err("command not provided".into());
+        return Err("command not provided".to_string());
     };
 
-    let command = match command.as_str() {
+    let command: SssCommand = match command.as_str() {
         "--decide" | "-d" => {
-            let problem = args
-                .next()
-                .ok_or_else(|| "decision problem type not provided".to_owned())?
-                .parse::<DecisionProblem>()?;
+            let err_msg = concat!(
+                "used decide wrong, ",
+                "usage: --decide ",
+                "[file path] [problem type]",
+            )
+            .to_string();
 
-            SssCommand::Decide(problem)
+            let Some(problem_type) = args.next() else {
+                return Err(err_msg);
+            };
+            let problem_type: DecisionProblemType = problem_type.parse()?;
+
+            let Some(fp) = args.next().map(path::PathBuf::from) else {
+                return Err(err_msg);
+            };
+
+            SssCommand::Decide { fp, problem_type }
         }
-        _ => return Err(format!("unknown command {command}")),
+
+        "--cast" | "-c" => {
+            tracing::error!("cast not implemented yet!");
+
+            let err_msg = concat!(
+                "used cast wrong, ",
+                "usage: --cast ",
+                "[file path] [format from] [format to]",
+            )
+            .to_string();
+
+            let Some(format_start) = args.next() else {
+                return Err(err_msg);
+            };
+            let format_start: DecisionProblemFormat = format_start.parse()?;
+
+            let Some(format_end) = args.next() else {
+                return Err(err_msg);
+            };
+            let format_end: DecisionProblemFormat = format_end.parse()?;
+
+            let Some(fp) = args.next().map(path::PathBuf::from) else {
+                return Err(err_msg);
+            };
+
+            SssCommand::Cast {
+                fp,
+                format_start,
+                format_end,
+            }
+        }
+
+        _ => {
+            let err_msg = format!("unknown command {}", command);
+            return Err(err_msg);
+        }
     };
 
     if let Some(arg) = args.next() {
-        return Err(format!("unexpected argument: {arg}"));
+        let err_msg = format!("unexpected argument {}", arg);
+        return Err(err_msg);
     }
 
     Ok(command)
@@ -68,6 +167,11 @@ pub fn main() -> ExitCode {
         }
     };
 
-    tracing::debug!(?command, "parsed command");
-    ExitCode::SUCCESS
+    match command.execute() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            tracing::error!("{err}");
+            ExitCode::FAILURE
+        }
+    }
 }
