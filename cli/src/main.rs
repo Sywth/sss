@@ -1,9 +1,11 @@
 #![allow(unused)]
-use std::{env, path};
+use logic::symbol::Form;
+use std::{env, fs, path};
 use std::{process::ExitCode, str};
 
 const LOG_LEVEL: tracing::Level = tracing::Level::DEBUG;
 
+// TODO should this be a trait?
 #[derive(Debug)]
 enum DecisionProblemType {
     Sat,
@@ -11,10 +13,12 @@ enum DecisionProblemType {
     Stcon,
 }
 
-//impl DecisionProblemType {
-//    pub fn decide(self, format: DecisionProblemFormat, input: Symbols) {}
-//}
-//
+impl DecisionProblemType {
+    pub fn decide(self, format: DecisionProblemFormat, input: Form) {
+        tracing::debug!(?format, ?input, "decide called");
+    }
+}
+
 impl str::FromStr for DecisionProblemType {
     type Err = String;
 
@@ -50,15 +54,14 @@ impl str::FromStr for DecisionProblemFormat {
 enum SssCommand {
     Decide {
         problem_type: DecisionProblemType,
-
         fp: path::PathBuf,
     },
 
     Cast {
-        format_start: DecisionProblemFormat,
-        format_end: DecisionProblemFormat,
-
-        fp: path::PathBuf,
+        fmt_from: DecisionProblemFormat,
+        fp_from: path::PathBuf,
+        fmt_to: DecisionProblemFormat,
+        fp_to: path::PathBuf,
     },
 }
 
@@ -66,14 +69,24 @@ impl SssCommand {
     fn execute(self) -> Result<(), String> {
         match self {
             SssCommand::Decide { problem_type, fp } => {
-                //problem_type::decide(fp)
-                todo!()
+                let file_content = fs::read_to_string(&fp).map_err(|e| {
+                    format!("could not read {}: {}", fp.display(), e)
+                })?;
+
+                let res = parser::parse_sfol(file_content.as_str())?;
+
+                // TODO: Call decide
+
+                Ok(())
             }
+
             SssCommand::Cast {
-                format_start,
-                format_end,
-                fp,
+                fmt_from,
+                fp_from,
+                fmt_to,
+                fp_to,
             } => {
+                tracing::debug!(?fmt_from, ?fp_from, ?fmt_to, ?fp_to);
                 todo!("cast will be implemented after decide")
             }
         }
@@ -84,7 +97,7 @@ fn parse_args(
     mut args: impl Iterator<Item = String>,
 ) -> Result<SssCommand, String> {
     let Some(command) = args.next() else {
-        return Err("command not provided".to_string());
+        return Err("no arguments provided".to_string());
     };
 
     let command: SssCommand = match command.as_str() {
@@ -92,18 +105,15 @@ fn parse_args(
             let err_msg = concat!(
                 "used decide wrong, ",
                 "usage: --decide ",
-                "[file path] [problem type]",
+                "[problem type] [file path]",
             )
             .to_string();
 
-            let Some(problem_type) = args.next() else {
-                return Err(err_msg);
-            };
-            let problem_type: DecisionProblemType = problem_type.parse()?;
-
-            let Some(fp) = args.next().map(path::PathBuf::from) else {
-                return Err(err_msg);
-            };
+            let problem_type = args.next().ok_or(err_msg.as_str())?.parse()?;
+            let fp = args
+                .next()
+                .map(path::PathBuf::from)
+                .ok_or(err_msg.as_str())?;
 
             SssCommand::Decide { fp, problem_type }
         }
@@ -114,28 +124,27 @@ fn parse_args(
             let err_msg = concat!(
                 "used cast wrong, ",
                 "usage: --cast ",
-                "[file path] [format from] [format to]",
+                "[fmt from] [fp from] [fmt to] [fp to]",
             )
             .to_string();
 
-            let Some(format_start) = args.next() else {
-                return Err(err_msg);
-            };
-            let format_start: DecisionProblemFormat = format_start.parse()?;
+            let fmt_from = args.next().ok_or(err_msg.as_str())?.parse()?;
+            let fp_from = args
+                .next()
+                .map(path::PathBuf::from)
+                .ok_or(err_msg.as_str())?;
 
-            let Some(format_end) = args.next() else {
-                return Err(err_msg);
-            };
-            let format_end: DecisionProblemFormat = format_end.parse()?;
-
-            let Some(fp) = args.next().map(path::PathBuf::from) else {
-                return Err(err_msg);
-            };
+            let fmt_to = args.next().ok_or(err_msg.as_str())?.parse()?;
+            let fp_to = args
+                .next()
+                .map(path::PathBuf::from)
+                .ok_or(err_msg.as_str())?;
 
             SssCommand::Cast {
-                fp,
-                format_start,
-                format_end,
+                fmt_from,
+                fmt_to,
+                fp_from,
+                fp_to,
             }
         }
 
@@ -157,6 +166,7 @@ pub fn main() -> ExitCode {
     tracing_subscriber::fmt()
         .with_max_level(LOG_LEVEL)
         .with_ansi(true)
+        .with_line_number(true)
         .init();
 
     let command = match parse_args(env::args().skip(1)) {

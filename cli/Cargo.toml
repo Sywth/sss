@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+logic = { version = "0.1.0", path = "../logic" }
+parser = { version = "0.1.0", path = "../parser" }
 se-cvp = { version = "0.1.0", path = "../se-cvp" }
 se-sat = { version = "0.1.0", path = "../se-sat" }
 se-stcon = { version = "0.1.0", path = "../se-stcon" }
