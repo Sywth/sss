@@ -30,8 +30,8 @@ pub enum Form {
 
     Imp(IdForm, IdForm),
     Iff(IdForm, IdForm),
-    Con(IdForm, IdForm),
-    Dis(IdForm, IdForm),
+    Con(Vec<IdForm>),
+    Dis(Vec<IdForm>),
 
     Forall(Sym, IdForm),
     Exists(Sym, IdForm),
@@ -95,7 +95,7 @@ fn test_neg_dis_imp() {
     let b = arena.new_form(Form::Prd(Sym(1), vec![]));
     let c = arena.new_form(Form::Prd(Sym(2), vec![]));
 
-    let dis = arena.new_form(Form::Dis(a, b));
+    let dis = arena.new_form(Form::Dis(vec![a, b]));
     let neg = arena.new_form(Form::Neg(dis));
     let root = arena.new_form(Form::Imp(neg, c));
 
@@ -113,7 +113,7 @@ fn test_exists_contradiction() {
     let x1 = arena.new_term(Term::Var(Sym(0)));
     let px = arena.new_form(Form::Prd(Sym(1), vec![x1]));
     let npx = arena.new_form(Form::Neg(px));
-    let con = arena.new_form(Form::Con(px, npx));
+    let con = arena.new_form(Form::Con(vec![px, npx]));
     let root = arena.new_form(Form::Exists(Sym(0), con));
 
     match arena.get_form(root) {
