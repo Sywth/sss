@@ -15,13 +15,14 @@ enum Token {
     Atom(String),
 }
 
-mod ssym {
+// Language Syntax
+mod sy {
     // Grammar
     pub const G_COMMENT: &str = ";;";
     pub const G_LPAREN: char = '(';
     pub const G_RPAREN: char = ')';
 
-    // Language Keywords
+    // Keywords
     pub const CON: &str = "and";
     pub const DIS: &str = "or";
     pub const NEG: &str = "not";
@@ -49,19 +50,19 @@ fn lex(input: &str) -> Result<Vec<Token>, String> {
         let rhs = &input[byte_idx..];
 
         // consume to next newline or end of file on comments
-        if rhs.starts_with(ssym::G_COMMENT) {
+        if rhs.starts_with(sy::G_COMMENT) {
             byte_idx += rhs.find('\n').unwrap_or(rhs.len());
             continue;
         }
 
         match curr {
-            ssym::G_LPAREN => {
-                byte_idx += ssym::G_LPAREN.len_utf8();
+            sy::G_LPAREN => {
+                byte_idx += sy::G_LPAREN.len_utf8();
                 tokens.push(Token::LParen);
                 continue;
             }
-            ssym::G_RPAREN => {
-                byte_idx += ssym::G_RPAREN.len_utf8();
+            sy::G_RPAREN => {
+                byte_idx += sy::G_RPAREN.len_utf8();
                 tokens.push(Token::RParen);
                 continue;
             }
@@ -71,7 +72,7 @@ fn lex(input: &str) -> Result<Vec<Token>, String> {
         let lexeme_start = byte_idx;
         while byte_idx < input.len() {
             let rhs = &input[byte_idx..];
-            if rhs.starts_with(ssym::G_COMMENT) {
+            if rhs.starts_with(sy::G_COMMENT) {
                 break;
             }
 
@@ -80,8 +81,8 @@ fn lex(input: &str) -> Result<Vec<Token>, String> {
             })?;
 
             let char_is_not_part_of_a_lexeme: bool = curr.is_whitespace()
-                || curr == ssym::G_LPAREN
-                || curr == ssym::G_RPAREN;
+                || curr == sy::G_LPAREN
+                || curr == sy::G_RPAREN;
             if char_is_not_part_of_a_lexeme {
                 break;
             }
@@ -89,10 +90,14 @@ fn lex(input: &str) -> Result<Vec<Token>, String> {
             byte_idx += curr.len_utf8();
         }
 
+        // i.e. do not break on the first iteration of the while
         if byte_idx == lexeme_start {
             return Err(format!("unexpected char at byte index {byte_idx}"));
         }
-        debug_assert!(byte_idx > lexeme_start, "bad logic");
+        debug_assert!(
+            byte_idx > lexeme_start,
+            "lexer must consume at least one byte for valid lexeme"
+        );
 
         let lexeme_slice = input[lexeme_start..byte_idx].to_owned();
         tokens.push(Token::Atom(lexeme_slice));
@@ -113,7 +118,6 @@ fn parse_sexp(tokens: &[Token]) -> Result<Sexp, String> {
 pub fn parse_sfol(input: &str) -> Result<ParsedFolForm, String> {
     dbg_boxed!("{}", input);
     let res = lex(input);
-
     todo!();
 }
 
@@ -121,8 +125,8 @@ pub fn parse_sfol(input: &str) -> Result<ParsedFolForm, String> {
 fn fixture_core_formula() -> String {
     format!(
         "({exists} (x1) ({con} (P x2) x3))",
-        exists = ssym::EXISTS,
-        con = ssym::CON,
+        exists = sy::EXISTS,
+        con = sy::CON,
     )
 }
 
@@ -130,12 +134,12 @@ fn fixture_core_formula() -> String {
 fn fixture_core_formula_expected_tokens() -> Vec<Token> {
     vec![
         Token::LParen,
-        Token::Atom(ssym::EXISTS.into()),
+        Token::Atom(sy::EXISTS.into()),
         Token::LParen,
         Token::Atom("x1".into()),
         Token::RParen,
         Token::LParen,
-        Token::Atom(ssym::CON.into()),
+        Token::Atom(sy::CON.into()),
         Token::LParen,
         Token::Atom("P".into()),
         Token::Atom("x2".into()),
