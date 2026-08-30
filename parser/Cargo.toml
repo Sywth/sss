@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 logic = { version = "0.1.0", path = "../logic" }
 tracing = "0.1.44"
+util = { version = "0.1.0", path = "../util" }

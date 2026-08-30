@@ -8,5 +8,5 @@ members = [
    "se-cvp",
    "se-sat",
    "se-stcon",
-   "se-tqbf",
+   "se-tqbf", "util",
 ]
