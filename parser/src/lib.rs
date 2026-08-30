@@ -1,4 +1,4 @@
-use logic::symbol::{FolArena, IdForm, Sym};
+use logic::symbol::{FolArena, Form, IdForm, Sym};
 use std::collections::HashMap;
 use util::dbg_boxed;
 
@@ -30,6 +30,10 @@ mod sy {
 
     pub const EXISTS: &str = "exists";
     pub const FORALL: &str = "forall";
+
+    pub const TOP: &str = "top";
+    pub const BOT: &str = "bot";
+    pub const EQU: &str = "eq";
 }
 
 /// Assumes input is utf-8
@@ -106,32 +110,105 @@ fn lex(input: &str) -> Result<Vec<Token>, String> {
     Ok(tokens)
 }
 
-enum Sexp {
-    Atom(String),
-    List(Vec<Sexp>),
+fn parse_sexpr_core(
+    tokens: &[Token],
+    mut idx: usize,
+) -> Result<(SExpr, usize), String> {
+    let token = tokens
+        .get(idx)
+        .ok_or_else(|| format!("could not get token at index {idx}"))?;
+
+    let (sexpr, idx) = match token {
+        // On a left paren we consume up to and including the right paren
+        Token::LParen => {
+            idx += 1;
+            let mut items = Vec::new();
+
+            loop {
+                match tokens.get(idx) {
+                    None => {
+                        return Err(format!(
+                            "unclosed '{}' at index {idx}",
+                            sy::G_LPAREN
+                        ));
+                    }
+
+                    Some(Token::RParen) => {
+                        return Ok((SExpr::List(items), idx + 1));
+                    }
+
+                    Some(_) => {
+                        let (item, next_idx) = parse_sexpr_core(tokens, idx)?;
+                        idx = next_idx;
+                        items.push(item);
+                    }
+                }
+            }
+        }
+
+        Token::Atom(atom) => Ok((SExpr::Atom(atom.clone()), idx + 1)),
+
+        Token::RParen => Err(format!(
+            "unexpected opening token '{}' at idx {idx}",
+            sy::G_RPAREN
+        )),
+    }?;
+
+    Ok((sexpr, idx))
 }
 
-fn parse_sexp(tokens: &[Token]) -> Result<Sexp, String> {
-    todo!();
+#[derive(Debug, Clone, PartialEq)]
+enum SExpr {
+    Atom(String),
+    List(Vec<SExpr>),
+}
+
+fn parse_sexpr(tokens: &[Token]) -> Result<SExpr, String> {
+    let (sexpr, idx) = parse_sexpr_core(tokens, 0)?;
+    if idx != tokens.len() {
+        return Err(format!(
+            "tokens found after parsing s-expression at index {idx}"
+        ));
+    }
+
+    Ok(sexpr)
 }
 
 pub fn parse_sfol(input: &str) -> Result<ParsedFolForm, String> {
-    dbg_boxed!("{}", input);
-    let res = lex(input);
-    todo!();
+    let mut arena = FolArena::new();
+    let mut symbol_table = HashMap::new();
+
+    let tokens = lex(input)?;
+    let sexpr = parse_sexpr(&tokens)?;
+    let root = arena.new_form(Form::Top);
+
+    dbg_boxed!("{:?}", input);
+    dbg_boxed!("{:?}", tokens);
+    dbg_boxed!("{:?}", sexpr);
+
+    Ok(ParsedFolForm {
+        arena,
+        root,
+        symbol_table,
+    })
 }
 
+// ===============================||
+// ------------------------ Tests |>
+// ===============================||
+
+// Test Lexer
 #[cfg(test)]
-fn fixture_core_formula() -> String {
+fn fixture_form_1() -> String {
     format!(
-        "({exists} (x1) ({con} (P x2) x3))",
+        "({exists} (x1) ({and} (P x2) x3))",
         exists = sy::EXISTS,
-        con = sy::CON,
+        and = sy::CON,
     )
 }
 
 #[cfg(test)]
-fn fixture_core_formula_expected_tokens() -> Vec<Token> {
+fn fixture_form_1_expected_tokens() -> Vec<Token> {
     vec![
         Token::LParen,
         Token::Atom(sy::EXISTS.into()),
@@ -152,8 +229,8 @@ fn fixture_core_formula_expected_tokens() -> Vec<Token> {
 
 #[test]
 fn lexer_core_formula() {
-    let tokens_produced = lex(&fixture_core_formula()).unwrap();
-    assert_eq!(tokens_produced, fixture_core_formula_expected_tokens());
+    let tokens_produced = lex(&fixture_form_1()).unwrap();
+    assert_eq!(tokens_produced, fixture_form_1_expected_tokens());
 }
 
 #[test]
@@ -165,11 +242,11 @@ fn lexer_fol_comments() {
 
             {} ;; This comment goes to eol
             "#,
-        fixture_core_formula(),
+        fixture_form_1(),
     );
 
     let tokens_produced = lex(&input).unwrap();
-    assert_eq!(tokens_produced, fixture_core_formula_expected_tokens());
+    assert_eq!(tokens_produced, fixture_form_1_expected_tokens());
 }
 
 #[test]
@@ -207,4 +284,79 @@ fn lexer_utf8_atoms() {
             Token::RParen,
         ]
     );
+}
+
+// Test Parser
+#[cfg(test)]
+fn fixture_form_2() -> String {
+    format!("({and} (P x) (not (Q y)))", and = sy::CON,)
+}
+
+#[cfg(test)]
+fn fixture_form_2_expected_sexpr() -> SExpr {
+    SExpr::List(vec![
+        SExpr::Atom("and".into()),
+        SExpr::List(vec![SExpr::Atom("P".into()), SExpr::Atom("x".into())]),
+        SExpr::List(vec![
+            SExpr::Atom("not".into()),
+            SExpr::List(vec![SExpr::Atom("Q".into()), SExpr::Atom("y".into())]),
+        ]),
+    ])
+}
+
+#[test]
+fn sexpr_nested_list() {
+    let tokens_produced = lex(&fixture_form_2());
+    let sexpr_produced = parse_sexpr(&tokens_produced.unwrap()).unwrap();
+    assert_eq!(sexpr_produced, fixture_form_2_expected_sexpr());
+}
+
+#[test]
+fn sexpr_rejects_unwrapped_list() {
+    let tokens_produced =
+        lex(&format!("{and} (P x) (Q y)", and = sy::CON)).unwrap();
+    let sexpr = parse_sexpr(&tokens_produced);
+    assert!(sexpr.is_err());
+}
+
+#[test]
+fn sexpr_rejects_unclosed_list() {
+    let tokens_produced =
+        lex(&format!("({or} (P x) (Q y)", or = sy::DIS)).unwrap();
+    let sexpr = parse_sexpr(&tokens_produced);
+    assert!(sexpr.is_err());
+}
+
+#[test]
+fn sexpr_rejects_extras() {
+    let tokens_produced =
+        lex(&format!("({and} (P x) (Q y)) hi", and = sy::CON)).unwrap();
+    let sexpr = parse_sexpr(&tokens_produced);
+    assert!(sexpr.is_err());
+}
+
+#[test]
+fn sexpr_accepts_closed_list() {
+    let tokens_produced =
+        lex(&format!("({and} (P x) (Q y))", and = sy::CON)).unwrap();
+    let sexpr = parse_sexpr(&tokens_produced);
+    assert!(sexpr.is_ok());
+}
+
+#[test]
+fn sexpr_accepts_nullary_predicate() {
+    let tokens_produced = lex("P").unwrap();
+    let sexpr = parse_sexpr(&tokens_produced);
+    assert!(sexpr.is_ok());
+}
+
+#[test]
+fn sexpr_accepts_nary_operators() {
+    let tokens_produced = lex(&format!(
+        "({and} (Parent x) (or (Mother x) (Father y) (Widowed x) (Widowed y)) (Child z))",
+        and = sy::CON
+    ))
+    .unwrap();
+    let sexpr = parse_sexpr(&tokens_produced);
+    assert!(sexpr.is_ok());
 }
