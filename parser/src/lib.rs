@@ -160,6 +160,9 @@ enum SExpr {
 
 fn parse_to_sexpr(tokens: &[Token]) -> Result<SExpr, String> {
     let (sexpr, idx) = parse_to_sexpr_core(tokens, 0)?;
+
+    // TODO: This means only one s-expr per file, we might want
+    // allow for jsonl style multi expression files in future
     if idx != tokens.len() {
         return Err(format!(
             "tokens found after parsing s-expression at index {idx}"
@@ -247,8 +250,12 @@ pub struct FolForm {
 
 fn lower_to_fol(sexpr: &SExpr) -> Result<FolForm, String> {
     let mut arena = FolFormArena::new();
-    // DEBUG Fake root
     let mut root = Form::Top;
+
+    match sexpr {
+        SExpr::Atom(s) => println!(">atm {:?}", s),
+        SExpr::List(v) => println!(">vec {:?}", v),
+    }
 
     Ok(FolForm { root, arena })
 }
@@ -257,7 +264,7 @@ pub fn parse_sfol(input: &str) -> Result<FolForm, String> {
     let tokens = lex_to_tokens(input)?;
     let sexpr = parse_to_sexpr(&tokens)?;
 
-    dbg_boxed!("{:?}", input);
+    dbg_boxed!("{:}", input);
     dbg_boxed!("{:?}", tokens);
     dbg_boxed!("{:?}", sexpr);
 

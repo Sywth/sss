@@ -1,0 +1,22 @@
+;; A x. (P x. /\ (E x. Q x)) 
+(
+  forall
+  x
+  (
+    and
+    (
+      P
+      x
+    )
+    (
+      exists
+      x
+      (
+        Q
+        x
+      )
+    )
+  )
+) ;; hi this is a
+;; tralling comment here 
+;; at the end 
