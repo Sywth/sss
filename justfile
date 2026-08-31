@@ -15,7 +15,10 @@ localremove crate dep:
   cargo remove -p {{crate}} {{dep}}
 
 # Add hoc commands
-r1: 
+r1:
+  cargo r -p cli -- --decide sat assets/sfol_v2/long_exists.sfol
+
+r2: 
   cargo r -p cli -- --decide sat assets/fol_sat/test_1.fol
 
 t1:
