@@ -1,11 +1,57 @@
+#![allow(unused)]
+
 use logic::symbol::{FolArena, Form, IdForm, Sym};
-use std::collections::HashMap;
 use util::dbg_boxed;
+
+#[derive(Default, Debug)]
+pub struct SymbolTable(Vec<(String, Sym)>);
+
+impl SymbolTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn get(&self, name: &str) -> Option<Sym> {
+        self.0
+            .iter()
+            .find(|(n, _)| n.as_str() == name)
+            .map(|(_, sym)| *sym)
+    }
+
+    pub fn put(&mut self, name: &str, sym: Sym) {
+        self.0.push((name.to_string(), sym))
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(String, Sym)> {
+        self.0.iter()
+    }
+}
 
 pub struct FolForm {
     pub arena: FolArena,
     pub root: IdForm,
-    pub symbol_table: HashMap<String, Sym>,
+    pub symbol_table: SymbolTable,
+}
+
+#[derive(Debug)]
+struct FolLoweringContext<'a> {
+    arena: &'a mut FolArena,
+    scope_stack: Vec<SymbolTable>,
+    symbols: SymbolTable,
+    next_symbol: u32,
+}
+
+impl<'a> FolLoweringContext<'a> {
+    pub fn new(arena: &'a mut FolArena) -> Self {
+        Self {
+            arena,
+            scope_stack: Vec::new(),
+            unbound_vars: SymbolTable::new(),
+            predicates: SymbolTable::new(),
+            symbols: SymbolTable::new(),
+            next_symbol: 0,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -175,21 +221,23 @@ fn parse_to_sexpr(tokens: &[Token]) -> Result<SExpr, String> {
     Ok(sexpr)
 }
 
-fn parse_to_form(
-    sexpr: &SExpr,
-    arena: &FolArena,
-    symbol_table: &HashMap<String, Sym>,
-) -> IdForm {
-    todo!();
+fn parse_to_form(sexpr: &SExpr, ctx: &mut FolLoweringContext) -> IdForm {
+    //while
+    todo!()
 }
 
 fn lower_to_fol(sexpr: &SExpr) -> Result<FolForm, String> {
     let mut arena = FolArena::new();
-    let mut symbol_table = HashMap::new();
+    let mut fol_lowering_ctx = FolLoweringContext::new(&mut arena);
 
-    let root = parse_to_form(sexpr, &mut arena, &mut symbol_table);
+    let root = parse_to_form(sexpr, &mut fol_lowering_ctx);
+    let symbol_table = todo!();
 
-    Ok((arena, root, symbol_table))
+    Ok(FolForm {
+        arena,
+        root,
+        symbol_table,
+    })
 }
 
 pub fn parse_sfol(input: &str) -> Result<FolForm, String> {

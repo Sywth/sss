@@ -1,13 +1,19 @@
 #![allow(unused)]
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct IdTerm(u32);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct IdForm(u32);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct Sym(u32);
+
+impl Sym {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+}
 
 #[derive(Debug)]
 pub enum Term {
@@ -39,7 +45,7 @@ pub enum Form {
 }
 
 /// Keep all logical objects in arena for cache hit locality
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct FolArena {
     terms: Vec<Term>,
     forms: Vec<Form>,
