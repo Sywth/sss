@@ -144,7 +144,7 @@ fn parse_to_sexpr_core(
         Token::Atom(atom) => Ok((SExpr::Atom(atom.clone()), idx + 1)),
 
         Token::RParen => Err(format!(
-            "unexpected opening token '{}' at idx {idx}",
+            "unexpected closing token '{}' at idx {idx}",
             sy::G_RPAREN
         )),
     }?;
@@ -244,13 +244,13 @@ impl FolFormArena {
 
 #[derive(Debug)]
 pub struct FolForm {
-    root: Form,
+    root: IdFo,
     arena: FolFormArena,
 }
 
 fn lower_to_fol(sexpr: &SExpr) -> Result<FolForm, String> {
     let mut arena = FolFormArena::new();
-    let mut root = Form::Top;
+    let mut root = arena.new_form(Form::Top);
 
     match sexpr {
         SExpr::Atom(s) => println!(">atm {:?}", s),
