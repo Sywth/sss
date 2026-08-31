@@ -288,6 +288,15 @@ fn fixture_form_1() -> String {
 }
 
 #[cfg(test)]
+fn fixture_form_2() -> String {
+    format!(
+        "({exists} x1 x2 x3 ({and} (P x1) (P x2) (Q x1 x3)))",
+        exists = sy::EXISTS,
+        and = sy::CON,
+    )
+}
+
+#[cfg(test)]
 fn fixture_form_1_expected_tokens() -> Vec<Token> {
     vec![
         Token::LParen,
@@ -307,10 +316,44 @@ fn fixture_form_1_expected_tokens() -> Vec<Token> {
     ]
 }
 
+#[cfg(test)]
+fn fixture_form_2_expected_tokens() -> Vec<Token> {
+    vec![
+        Token::LParen,
+        Token::Atom(sy::EXISTS.into()),
+        Token::Atom("x1".into()),
+        Token::Atom("x2".into()),
+        Token::Atom("x3".into()),
+        Token::LParen,
+        Token::Atom(sy::CON.into()),
+        Token::LParen,
+        Token::Atom("P".into()),
+        Token::Atom("x1".into()),
+        Token::RParen,
+        Token::LParen,
+        Token::Atom("P".into()),
+        Token::Atom("x2".into()),
+        Token::RParen,
+        Token::LParen,
+        Token::Atom("Q".into()),
+        Token::Atom("x1".into()),
+        Token::Atom("x3".into()),
+        Token::RParen,
+        Token::RParen,
+        Token::RParen,
+    ]
+}
+
 #[test]
-fn lexer_core_formula() {
+fn lexer_fixture_1() {
     let tokens_produced = lex_to_tokens(&fixture_form_1()).unwrap();
     assert_eq!(tokens_produced, fixture_form_1_expected_tokens());
+}
+
+#[test]
+fn lexer_fixture_2() {
+    let tokens_produced = lex_to_tokens(&fixture_form_2()).unwrap();
+    assert_eq!(tokens_produced, fixture_form_2_expected_tokens());
 }
 
 #[test]
@@ -369,12 +412,12 @@ fn lexer_utf8_atoms() {
 
 // Test Parser
 #[cfg(test)]
-fn fixture_form_2() -> String {
+fn fixture_form_3() -> String {
     format!("({and} (P x) (not (Q y)))", and = sy::CON,)
 }
 
 #[cfg(test)]
-fn fixture_form_2_expected_sexpr() -> SExpr {
+fn fixture_form_3_expected_sexpr() -> SExpr {
     SExpr::List(vec![
         SExpr::Atom("and".into()),
         SExpr::List(vec![SExpr::Atom("P".into()), SExpr::Atom("x".into())]),
@@ -387,9 +430,9 @@ fn fixture_form_2_expected_sexpr() -> SExpr {
 
 #[test]
 fn sexpr_nested_list() {
-    let tokens_produced = lex_to_tokens(&fixture_form_2());
+    let tokens_produced = lex_to_tokens(&fixture_form_3());
     let sexpr_produced = parse_to_sexpr(&tokens_produced.unwrap()).unwrap();
-    assert_eq!(sexpr_produced, fixture_form_2_expected_sexpr());
+    assert_eq!(sexpr_produced, fixture_form_3_expected_sexpr());
 }
 
 #[test]

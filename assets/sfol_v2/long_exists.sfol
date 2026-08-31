@@ -1,0 +1,4 @@
+;; There is some x,y,z such that y and x hold condition P
+;; and Q is held by the 2 - tuple (x, z)
+(exists x1 x2 x3 (and (P x1) (P x2) (Q x1 x3)))
+
