@@ -12,14 +12,15 @@ pub struct Sym(u32);
 #[derive(Debug)]
 pub enum Term {
     Var(Sym),
-    Cst(Sym),
+    // Decided to keep all symbols bound
+    // by some quantifier or unbound
+    // hence no constants
+    //Cst(Sym),
 }
 
 #[derive(Debug)]
 pub enum Form {
-    // Evaluates to Top | Bot when closed
-
-    // Atomics
+    // All evaluates to Top or Bot when closed
     Top,
     Bot,
 
