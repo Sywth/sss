@@ -1,58 +1,6 @@
 #![allow(unused)]
 
-use logic::symbol::{FolArena, Form, IdForm, Sym};
 use util::dbg_boxed;
-
-#[derive(Default, Debug)]
-pub struct SymbolTable(Vec<(String, Sym)>);
-
-impl SymbolTable {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn get(&self, name: &str) -> Option<Sym> {
-        self.0
-            .iter()
-            .find(|(n, _)| n.as_str() == name)
-            .map(|(_, sym)| *sym)
-    }
-
-    pub fn put(&mut self, name: &str, sym: Sym) {
-        self.0.push((name.to_string(), sym))
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &(String, Sym)> {
-        self.0.iter()
-    }
-}
-
-pub struct FolForm {
-    pub arena: FolArena,
-    pub root: IdForm,
-    pub symbol_table: SymbolTable,
-}
-
-#[derive(Debug)]
-struct FolLoweringContext<'a> {
-    arena: &'a mut FolArena,
-    scope_stack: Vec<SymbolTable>,
-    symbols: SymbolTable,
-    next_symbol: u32,
-}
-
-impl<'a> FolLoweringContext<'a> {
-    pub fn new(arena: &'a mut FolArena) -> Self {
-        Self {
-            arena,
-            scope_stack: Vec::new(),
-            unbound_vars: SymbolTable::new(),
-            predicates: SymbolTable::new(),
-            symbols: SymbolTable::new(),
-            next_symbol: 0,
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum Token {
@@ -221,36 +169,100 @@ fn parse_to_sexpr(tokens: &[Token]) -> Result<SExpr, String> {
     Ok(sexpr)
 }
 
-fn parse_to_form(sexpr: &SExpr, ctx: &mut FolLoweringContext) -> IdForm {
-    //while
-    todo!()
+// "Symbol" is an overloaded word and refers
+// to either the string name x
+// or its underlying numerical id
+//
+// Hence use SymName to refer the lexed name
+// of an identifier and
+// IdSy to the underlying unique numerical
+// representation
+type SymName = String;
+type IdSy = u32;
+type IdTm = u32;
+type IdFo = u32;
+
+#[derive(Debug)]
+pub enum Term {
+    Var(IdSy),
+    //Cst(SId),
+    //AFn(SId, Vec<TId>),
+}
+
+#[derive(Debug)]
+pub enum Form {
+    Top,
+    Bot,
+
+    Prd(IdSy, Vec<IdTm>),
+    Equ(IdTm, IdTm),
+
+    Neg(IdFo),
+    Con(IdFo, IdFo),
+    Dis(IdFo, IdFo),
+    Imp(IdFo, IdFo),
+    Iff(IdFo, IdFo),
+
+    All(IdSy, IdFo),
+    Ext(IdSy, IdFo),
+}
+
+#[derive(Debug, Default)]
+pub struct FolFormArena {
+    terms: Vec<Term>,
+    forms: Vec<Form>,
+}
+
+impl FolFormArena {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn new_term(&mut self, t: Term) -> IdTm {
+        let id = self.terms.len() as IdTm;
+        self.terms.push(t);
+        id
+    }
+
+    pub fn new_form(&mut self, f: Form) -> IdFo {
+        let id = self.forms.len() as IdFo;
+        self.forms.push(f);
+        id
+    }
+
+    pub fn get_term(&self, id: IdTm) -> &Term {
+        &self.terms[id as usize]
+    }
+
+    pub fn get_form(&self, id: IdFo) -> &Form {
+        &self.forms[id as usize]
+    }
+}
+
+#[derive(Debug)]
+pub struct FolForm {
+    root: Form,
+    arena: FolFormArena,
 }
 
 fn lower_to_fol(sexpr: &SExpr) -> Result<FolForm, String> {
-    let mut arena = FolArena::new();
-    let mut fol_lowering_ctx = FolLoweringContext::new(&mut arena);
+    let mut arena = FolFormArena::new();
+    // DEBUG Fake root
+    let mut root = Form::Top;
 
-    let root = parse_to_form(sexpr, &mut fol_lowering_ctx);
-    let symbol_table = todo!();
-
-    Ok(FolForm {
-        arena,
-        root,
-        symbol_table,
-    })
+    Ok(FolForm { root, arena })
 }
 
 pub fn parse_sfol(input: &str) -> Result<FolForm, String> {
     let tokens = lex_to_tokens(input)?;
     let sexpr = parse_to_sexpr(&tokens)?;
-    let form = lower_to_fol(&sexpr)?;
 
     dbg_boxed!("{:?}", input);
     dbg_boxed!("{:?}", tokens);
     dbg_boxed!("{:?}", sexpr);
 
-    dbg_boxed!("{:?}", form.root);
-    dbg_boxed!("{:?}", form.symbol_table);
+    let form = lower_to_fol(&sexpr)?;
+    dbg_boxed!("{:?}", form);
 
     Ok(form)
 }

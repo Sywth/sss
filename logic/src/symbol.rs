@@ -22,6 +22,10 @@ pub enum Term {
     // by some quantifier or unbound
     // hence no constants
     //Cst(Sym),
+    // Removed as not needed
+    // and hard to parse applied
+    // pred vs applied fn
+    //Apl(IdFn, IdArg),
 }
 
 #[derive(Debug)]
