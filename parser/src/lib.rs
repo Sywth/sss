@@ -1,6 +1,17 @@
 #![allow(unused)]
 
 use util::dbg_boxed;
+// TOOD:
+// - Implement lowere struct
+// - Implement lower function and recursive lowering behaviour
+//      to go from sfol in README.txt to actual logical lowerer
+//  - Once the lowere works put all the engine parts into
+//      logic (backend only)
+//      - Recall logic should not even know that we use strings
+//      for keep tracking of identifier names,
+//  - Once lowere is done go back and hook it up in cli
+//      to decide sat
+//  - Go implement dpll in se-sat
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum Token {
@@ -214,6 +225,52 @@ pub enum Form {
 pub struct FolFormArena {
     terms: Vec<Term>,
     forms: Vec<Form>,
+}
+
+#[derive(Default)]
+pub struct SymbolTable {
+    entries: Vec<(IdSy, SymName)>,
+}
+
+// TODO: FIX: This is a very naive slow implemention,
+// feel free to fix later if neede but eh cba rn
+// also probably faster for smaller formula
+// when considering cost of hashing
+impl SymbolTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn contains_id(&self, target_id: IdSy) -> bool {
+        self.entries.iter().any(|(id, _)| *id == target_id)
+    }
+
+    pub fn contains_sy(&self, target_name: &str) -> bool {
+        self.entries.iter().any(|(_, name)| name == target_name)
+    }
+
+    pub fn set(&mut self, id: IdSy, name: SymName) -> bool {
+        if self.contains_id(id) || self.contains_sy(&name) {
+            return false;
+        }
+
+        self.entries.push((id, name));
+        true
+    }
+
+    pub fn to_id(&self, target_name: &str) -> Option<IdSy> {
+        self.entries
+            .iter()
+            .find(|(_, sym)| sym == target_name)
+            .map(|(id, _)| *id)
+    }
+
+    pub fn to_sy(&self, target_id: IdSy) -> Option<&str> {
+        self.entries
+            .iter()
+            .find(|(id, _)| *id == target_id)
+            .map(|(_, name)| name.as_str())
+    }
 }
 
 impl FolFormArena {
