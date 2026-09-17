@@ -2,14 +2,14 @@
 
 use util::dbg_boxed;
 // TOOD:
-// - Implement lowere struct
+// - Implement lowerer struct
 // - Implement lower function and recursive lowering behaviour
 //      to go from sfol in README.txt to actual logical lowerer
-//  - Once the lowere works put all the engine parts into
+//  - Once the lowerer works put all the engine parts into
 //      logic (backend only)
 //      - Recall logic should not even know that we use strings
 //      for keep tracking of identifier names,
-//  - Once lowere is done go back and hook it up in cli
+//  - Once lowerer is done go back and hook it up in cli
 //      to decide sat
 //  - Go implement dpll in se-sat
 
